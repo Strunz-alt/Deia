@@ -1,0 +1,72 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import EmptyState from '@/components/EmptyState.astro';
+import FilterChips from '@/components/FilterChips.astro';
+import MiembroCard from '@/components/MiembroCard.astro';
+import PageHero from '@/components/PageHero.astro';
+import SampleNotice from '@/components/SampleNotice.astro';
+import { areas, miembros } from '@/data/miembros';
+import { slugify } from '@/lib/format';
+
+const areasConMiembros = areas.filter((a) => miembros.some((m) => m.area === a));
+---
+
+<BaseLayout title="Miembros del Centro" description="Conocé a quienes integran el Centro de Estudiantes de Derecho de la UCA.">
+  <PageHero
+    eyebrow="El Centro"
+    title="Quiénes somos"
+    lead="Somos estudiantes de distintos años de la carrera que trabajamos por una Facultad más cercana, participativa y comprometida. Conocé al equipo y a las áreas que lo integran."
+    crumbs={[{ label: 'El Centro' }]}
+    numeral="VIII"
+  />
+
+  <section class="section section--tight">
+    <div class="container" data-filter-root>
+      <SampleNotice
+        source="src/data/miembros.ts"
+        text="La estructura de cargos y áreas es tentativa. Los nombres y fotos se cargarán con los datos reales del equipo."
+      />
+
+      <div class="team-filter" data-reveal>
+        <FilterChips filterKey="area" label="Filtrar por área" allLabel="Todo el equipo" options={areasConMiembros.map((a) => ({ value: a, label: a }))} />
+        <p class="results-bar__count" data-filter-count data-one="integrante" data-many="integrantes" aria-live="polite"></p>
+      </div>
+
+      {
+        miembros.length > 0 ? (
+          areasConMiembros.map((area) => (
+            <section class="area-block" data-filter-group aria-labelledby={`area-${slugify(area)}`}>
+              <h2 class="area-block__title" id={`area-${slugify(area)}`} data-reveal>
+                {area}
+              </h2>
+              <div class="grid grid--4" data-reveal-stagger>
+                {miembros
+                  .filter((m) => m.area === area)
+                  .map((m) => (
+                    <MiembroCard miembro={m} />
+                  ))}
+              </div>
+            </section>
+          ))
+        ) : (
+          <EmptyState icon="users" title="Pronto presentaremos al equipo" text="Estamos preparando los perfiles de quienes integran el Centro." />
+        )
+      }
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .team-filter { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+  .area-block { padding-top: 2.5rem; }
+  .area-block__title {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    font-family: var(--font-serif);
+    font-size: var(--fs-xl);
+    font-weight: 600;
+  }
+  .area-block__title::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+</style>

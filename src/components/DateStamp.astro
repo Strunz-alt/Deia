@@ -1,0 +1,50 @@
+---
+/** Sello de fecha estilo calendario (día grande + mes). */
+import { partesFecha } from '@/lib/format';
+
+interface Props {
+  fecha: string;
+  tone?: 'light' | 'dark';
+  size?: 'md' | 'lg';
+}
+
+const { fecha, tone = 'light', size = 'md' } = Astro.props;
+const p = partesFecha(fecha);
+---
+
+<time datetime={fecha} class:list={['stamp', `stamp--${tone}`, `stamp--${size}`]}>
+  <span class="stamp__day">{p.dia}</span>
+  <span class="stamp__month">{p.mes}</span>
+  <span class="stamp__year">{p.anio}</span>
+</time>
+
+<style>
+  .stamp {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 68px;
+    padding: 0.55rem 0.6rem 0.5rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background: var(--paper);
+    color: var(--navy-900);
+    line-height: 1;
+    text-align: center;
+  }
+  .stamp--dark { background: var(--navy-900); border-color: var(--navy-900); color: var(--ivory); }
+  .stamp__day { font-family: var(--font-serif); font-size: 2rem; font-weight: 600; }
+  .stamp__month {
+    margin-top: 0.2rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--gold-600);
+  }
+  .stamp--dark .stamp__month { color: var(--gold-500); }
+  .stamp__year { margin-top: 0.2rem; font-size: 0.66rem; opacity: 0.7; }
+  .stamp--lg { min-width: 92px; padding: 0.9rem; }
+  .stamp--lg .stamp__day { font-size: 2.8rem; }
+</style>

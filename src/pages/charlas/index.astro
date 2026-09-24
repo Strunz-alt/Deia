@@ -1,0 +1,77 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import CharlaCard from '@/components/CharlaCard.astro';
+import EmptyState from '@/components/EmptyState.astro';
+import FilterChips from '@/components/FilterChips.astro';
+import Icon from '@/components/Icon.astro';
+import PageHero from '@/components/PageHero.astro';
+import SampleNotice from '@/components/SampleNotice.astro';
+import { charlas } from '@/data/charlas';
+import type { TipoCharla } from '@/data/types';
+import { estadoEvento, porFechaAsc, porFechaDesc } from '@/lib/format';
+
+// Próximas primero (orden cronológico) y luego realizadas (más recientes primero).
+const proximas = charlas.filter((c) => estadoEvento(c.fecha) === 'proxima').sort(porFechaAsc);
+const realizadas = charlas.filter((c) => estadoEvento(c.fecha) === 'realizada').sort(porFechaDesc);
+const ordenadas = [...proximas, ...realizadas];
+const tipos = [...new Set(charlas.map((c) => c.tipo))] as TipoCharla[];
+---
+
+<BaseLayout title="Charlas" description="Charlas, jornadas y encuentros organizados por el Centro de Estudiantes de Derecho de la UCA.">
+  <PageHero
+    eyebrow="Actividades académicas"
+    title="Charlas, jornadas y encuentros"
+    lead="Espacios para aprender de especialistas, graduados y compañeros. Consultá la agenda, revisá actividades anteriores y encontrá la información de inscripción."
+    crumbs={[{ label: 'Actividades' }]}
+    numeral="I"
+  />
+
+  <section class="section section--tight">
+    <div class="container" data-filter-root>
+      <SampleNotice source="src/data/charlas.ts" />
+
+      <div class="toolbar" data-reveal>
+        <div class="toolbar__search field">
+          <label class="field__label" for="charlas-q">Buscar</label>
+          <div class="input-icon">
+            <Icon name="search" size={18} />
+            <input id="charlas-q" class="input" type="search" placeholder="Título, temática o lugar" data-filter-search />
+          </div>
+        </div>
+        <div class="toolbar__group">
+          <span class="field__label">Estado</span>
+          <FilterChips
+            filterKey="estado"
+            label="Filtrar por estado"
+            options={[
+              { value: 'proxima', label: `Próximas (${proximas.length})` },
+              { value: 'realizada', label: `Realizadas (${realizadas.length})` },
+            ]}
+          />
+        </div>
+        <div class="toolbar__group">
+          <span class="field__label">Formato</span>
+          <FilterChips filterKey="tipo" label="Filtrar por formato" allLabel="Todos" options={tipos.map((t) => ({ value: t, label: t }))} />
+        </div>
+      </div>
+
+      <div class="results-bar">
+        <p class="results-bar__count" data-filter-count data-one="actividad" data-many="actividades" aria-live="polite"></p>
+        <button type="button" class="reset" data-filter-reset>Limpiar filtros</button>
+      </div>
+
+      {
+        ordenadas.length > 0 ? (
+          <div class="grid grid--3" data-reveal-stagger>
+            {ordenadas.map((c) => (
+              <CharlaCard charla={c} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState icon="calendar" title="Todavía no hay actividades cargadas" text="Cuando se anuncien nuevas charlas aparecerán aquí." />
+        )
+      }
+      <EmptyState filterEmpty icon="search" title="No encontramos actividades" text="Probá con otra búsqueda o limpiá los filtros para ver todas las actividades." />
+    </div>
+  </section>
+</BaseLayout>

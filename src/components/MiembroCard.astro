@@ -1,0 +1,59 @@
+---
+import Icon from './Icon.astro';
+import type { Miembro } from '@/data/types';
+
+interface Props {
+  miembro: Miembro;
+}
+
+const { miembro } = Astro.props;
+const nombre = miembro.nombre ?? 'Nombre a confirmar';
+---
+
+<article class="card card--interactive miembro" data-filter-item data-f-area={miembro.area} data-search={`${nombre} ${miembro.cargo} ${miembro.area}`}>
+  <div class="miembro__photo">
+    {
+      miembro.foto ? (
+        <img src={miembro.foto.src} alt={miembro.foto.alt} loading="lazy" />
+      ) : (
+        <div class="miembro__ph" role="img" aria-label="Foto pendiente">
+          <Icon name="user" size={46} />
+          <span>Foto pendiente</span>
+        </div>
+      )
+    }
+  </div>
+  <div class="miembro__body">
+    <p class="miembro__area">{miembro.area}</p>
+    <h3 class:list={['miembro__name', { 'is-tbc': !miembro.nombre }]}>{nombre}</h3>
+    <p class="miembro__cargo">{miembro.cargo}</p>
+    {miembro.ejemplo && <span class="badge badge--sample">Ejemplo</span>}
+  </div>
+</article>
+
+<style>
+  .miembro__photo { aspect-ratio: 4 / 5; overflow: hidden; background: var(--sand); }
+  .miembro__photo img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(0.2); transition: transform 900ms var(--ease-out), filter var(--dur); }
+  .miembro:hover .miembro__photo img { transform: scale(1.04); filter: none; }
+  .miembro__ph {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    height: 100%;
+    color: var(--ink-faint);
+    background:
+      radial-gradient(circle at 50% 38%, rgb(255 255 255 / 0.7), transparent 55%),
+      repeating-linear-gradient(135deg, transparent 0 14px, rgb(14 27 51 / 0.035) 14px 15px),
+      var(--sand);
+    transition: color var(--dur);
+  }
+  .miembro:hover .miembro__ph { color: var(--gold-600); }
+  .miembro__ph span { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
+  .miembro__body { display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem; padding: 1.15rem 1.25rem 1.35rem; border-top: 2px solid var(--gold-500); }
+  .miembro__area { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-600); }
+  .miembro__name { font-family: var(--font-serif); font-size: 1.4rem; font-weight: 600; line-height: 1.1; }
+  .miembro__name.is-tbc { color: var(--ink-faint); font-style: italic; font-weight: 500; }
+  .miembro__cargo { font-size: var(--fs-sm); color: var(--ink-soft); margin-bottom: 0.4rem; }
+</style>

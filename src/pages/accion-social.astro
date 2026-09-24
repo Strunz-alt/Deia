@@ -1,0 +1,206 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import ActionButton from '@/components/ActionButton.astro';
+import EmptyState from '@/components/EmptyState.astro';
+import FilterChips from '@/components/FilterChips.astro';
+import Icon, { type IconName } from '@/components/Icon.astro';
+import PageHero from '@/components/PageHero.astro';
+import Placeholder from '@/components/Placeholder.astro';
+import SampleNotice from '@/components/SampleNotice.astro';
+import SectionHeader from '@/components/SectionHeader.astro';
+import { comoParticipar, formularioVoluntariado, iniciativas, organizaciones } from '@/data/accionSocial';
+import type { TipoIniciativa } from '@/data/types';
+
+const ejes: { tipo: TipoIniciativa; icon: IconName; texto: string }[] = [
+  { tipo: 'Voluntariado', icon: 'users', texto: 'Actividades periódicas donde ponemos tiempo y formación al servicio de otros.' },
+  { tipo: 'Colecta', icon: 'heart', texto: 'Campañas solidarias para acompañar a instituciones y familias.' },
+  { tipo: 'Proyecto', icon: 'handshake', texto: 'Iniciativas de largo plazo junto a organizaciones de la comunidad.' },
+];
+const cuenta = (t: TipoIniciativa) => iniciativas.filter((i) => i.tipo === t).length;
+const estadoClase = { Activa: 'badge--live', 'Próximamente': 'badge--gold', Finalizada: 'badge--past' } as const;
+---
+
+<BaseLayout title="Acción Social" description="Voluntariados, colectas y proyectos solidarios del Centro de Estudiantes de Derecho de la UCA.">
+  <PageHero
+    eyebrow="Compromiso social"
+    title="Acción Social"
+    lead="Creemos que la formación jurídica también se construye en contacto con la realidad. Desde el área impulsamos voluntariados, colectas y proyectos para acompañar a la comunidad."
+    crumbs={[{ label: 'Actividades' }]}
+    numeral="III"
+  />
+
+  <!-- Ejes -->
+  <section class="section section--tight">
+    <div class="container">
+      <ul role="list" class="ejes" data-reveal-stagger>
+        {
+          ejes.map((e) => (
+            <li class="eje">
+              <span class="eje__icon"><Icon name={e.icon} size={26} /></span>
+              <h2 class="eje__title">{e.tipo === 'Proyecto' ? 'Proyectos' : `${e.tipo}s`}</h2>
+              <p class="eje__text">{e.texto}</p>
+              <p class="eje__count"><strong>{cuenta(e.tipo)}</strong> {cuenta(e.tipo) === 1 ? 'iniciativa' : 'iniciativas'}</p>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <!-- Iniciativas -->
+  <section class="section section--sand" aria-labelledby="ini-title">
+    <div class="container" data-filter-root data-filter-url="false">
+      <SectionHeader id="ini-title" eyebrow="Iniciativas" title="Voluntariados, colectas y proyectos" />
+      <SampleNotice source="src/data/accionSocial.ts" />
+      <div class="ini-filter">
+        <FilterChips filterKey="tipo" label="Filtrar por tipo" allLabel="Todas" options={ejes.map((e) => ({ value: e.tipo, label: e.tipo }))} />
+        <p class="results-bar__count" data-filter-count data-one="iniciativa" data-many="iniciativas" aria-live="polite"></p>
+      </div>
+      {
+        iniciativas.length > 0 ? (
+          <div class="grid grid--2" data-reveal-stagger>
+            {iniciativas.map((i) => (
+              <article class="card card--interactive iniciativa" data-filter-item data-f-tipo={i.tipo}>
+                <div class="iniciativa__media">
+                  <Placeholder icon={i.tipo === 'Colecta' ? 'heart' : i.tipo === 'Proyecto' ? 'handshake' : 'users'} ratio="16 / 7" label="Foto pendiente" />
+                </div>
+                <div class="card__body">
+                  <div class="card__meta">
+                    <span class="badge badge--navy">{i.tipo}</span>
+                    <span class:list={['badge', estadoClase[i.estado]]}>{i.estado}</span>
+                    {i.ejemplo && <span class="badge badge--sample">Ejemplo</span>}
+                  </div>
+                  <h3 class="card__title">{i.titulo}</h3>
+                  <p class="muted">{i.descripcion}</p>
+                  <p class="iniciativa__freq"><Icon name="calendar" size={16} /> {i.frecuencia}</p>
+                  <div class="card__footer">
+                    {i.estado !== 'Finalizada' ? (
+                      <ActionButton
+                        label={i.participar.label}
+                        href={i.participar.href}
+                        variant="outline"
+                        size="sm"
+                        pendingMessage="El formulario de participación todavía no está habilitado. Mientras tanto, podés acercarte al Centro."
+                      />
+                    ) : (
+                      <p class="iniciativa__done">Campaña finalizada · próximamente, balance y fotos.</p>
+                    )}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <EmptyState icon="heart" title="No hay iniciativas cargadas" text="Pronto publicaremos las próximas propuestas del área." />
+        )
+      }
+      <EmptyState filterEmpty compact icon="search" title="No hay iniciativas de este tipo por ahora" />
+    </div>
+  </section>
+
+  <!-- Organizaciones -->
+  <section class="section" aria-labelledby="org-title">
+    <div class="container">
+      <SectionHeader
+        id="org-title"
+        eyebrow="Redes de trabajo"
+        title="Organizaciones con las que colaboramos"
+        lead="Instituciones, parroquias, escuelas y ONG que acompañan nuestras iniciativas."
+      />
+      {
+        organizaciones.length > 0 ? (
+          <ul role="list" class="grid grid--4 orgs" data-reveal-stagger>
+            {organizaciones.map((o) => (
+              <li class="card org">
+                <Placeholder image={o.logo} icon="handshake" ratio="3 / 2" label="Logo pendiente" />
+                <div class="card__body">
+                  <h3 class="card__title">{o.nombre}</h3>
+                  <p class="muted">{o.descripcion}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div data-reveal>
+            <EmptyState
+              icon="handshake"
+              title="Próximamente"
+              text="Estamos preparando la información de las organizaciones con las que trabajamos. Aquí se mostrarán sus logos, una breve descripción y el enlace a cada una."
+            />
+          </div>
+        )
+      }
+    </div>
+  </section>
+
+  <!-- Cómo participar -->
+  <section class="section section--dark" aria-labelledby="part-title" id="participar">
+    <div class="container participar">
+      <div data-reveal>
+        <p class="eyebrow">Sumate</p>
+        <h2 class="h2" id="part-title">¿Cómo <em>participar</em>?</h2>
+        <p class="lead" style="margin-top:1rem">No hace falta experiencia previa: sólo ganas de comprometerte. Cualquier estudiante de la Facultad puede sumarse.</p>
+        <div class="participar__cta">
+          <ActionButton
+            label={formularioVoluntariado.label}
+            href={formularioVoluntariado.href}
+            variant="gold"
+            pendingTag="Próximamente"
+            pendingMessage="El formulario de voluntariado todavía no está habilitado."
+          />
+          <a href="#contacto" class="btn btn--light">Contactar al Centro</a>
+        </div>
+      </div>
+      <ol role="list" class="steps" data-reveal-stagger>
+        {
+          comoParticipar.map((p, i) => (
+            <li class="step">
+              <span class="step__n">{i + 1}</span>
+              <div>
+                <h3 class="step__title">{p.titulo}</h3>
+                <p class="step__text">{p.texto}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .ejes { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  @media (min-width: 800px) { .ejes { grid-template-columns: repeat(3, 1fr); } }
+  .eje { display: flex; flex-direction: column; gap: 0.6rem; padding: 2rem; background: var(--ivory); transition: background-color var(--dur); }
+  .eje:hover { background: var(--paper); }
+  .eje__icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: var(--navy-900); color: var(--gold-500); margin-bottom: 0.5rem; }
+  .eje__title { font-family: var(--font-serif); font-size: 1.7rem; font-weight: 600; }
+  .eje__text { color: var(--ink-soft); font-size: var(--fs-sm); }
+  .eje__count { margin-top: auto; padding-top: 0.75rem; font-size: var(--fs-sm); color: var(--ink-soft); }
+  .eje__count strong { font-family: var(--font-serif); font-size: 1.6rem; color: var(--gold-600); margin-right: 0.25rem; }
+
+  .ini-filter { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+  .iniciativa__media { overflow: hidden; }
+  .iniciativa__media :global(> *) { transition: transform 900ms var(--ease-out); }
+  .iniciativa:hover .iniciativa__media :global(> *) { transform: scale(1.04); }
+  .iniciativa__freq { display: flex; align-items: center; gap: 0.5rem; font-size: var(--fs-sm); font-weight: 500; }
+  .iniciativa__freq :global(.icon) { color: var(--gold-600); }
+  .iniciativa__done { font-size: var(--fs-sm); color: var(--ink-faint); font-style: italic; }
+
+  .participar { display: grid; gap: 3rem; }
+  @media (min-width: 960px) { .participar { grid-template-columns: 1fr 1fr; align-items: center; gap: 5rem; } }
+  .participar__cta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2rem; }
+  .steps { display: grid; gap: 1rem; }
+  .step {
+    display: flex;
+    gap: 1.25rem;
+    padding: 1.5rem;
+    border: 1px solid rgb(255 255 255 / 0.12);
+    border-radius: var(--radius);
+    transition: border-color var(--dur), background-color var(--dur), transform var(--dur) var(--ease-out);
+  }
+  .step:hover { border-color: var(--gold-500); background: rgb(255 255 255 / 0.03); transform: translateX(4px); }
+  .step__n { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--gold-500); color: var(--gold-500); font-family: var(--font-serif); font-size: 1.4rem; font-weight: 600; }
+  .step__title { font-family: var(--font-serif); font-size: 1.4rem; font-weight: 600; }
+  .step__text { color: #b9c1d4; font-size: var(--fs-sm); margin-top: 0.25rem; }
+</style>

@@ -1,0 +1,99 @@
+---
+import ActionButton from './ActionButton.astro';
+import Icon from './Icon.astro';
+import type { Apunte } from '@/data/types';
+import { formatFecha } from '@/lib/format';
+
+interface Props {
+  apunte: Apunte;
+}
+
+const { apunte } = Astro.props;
+const pendiente = 'El archivo de este material todavía no fue cargado. Estará disponible para ver y descargar próximamente.';
+---
+
+<article
+  class="card apunte"
+  data-filter-item
+  data-f-materia={apunte.materia}
+  data-f-catedra={apunte.catedra}
+  data-f-anio={String(apunte.anio)}
+  data-f-tipo={apunte.tipo}
+  data-fecha={apunte.fecha}
+  data-search={`${apunte.titulo} ${apunte.materia} ${apunte.catedra} ${apunte.tipo}`}
+>
+  <div class="apunte__icon" aria-hidden="true">
+    <Icon name="file" size={26} />
+    <span class="apunte__year">{apunte.anio}.º</span>
+  </div>
+  <div class="apunte__main">
+    <div class="card__meta">
+      <span class="badge badge--gold">{apunte.tipo}</span>
+      {apunte.ejemplo && <span class="badge badge--sample">Ejemplo</span>}
+    </div>
+    <h3 class="apunte__title">{apunte.titulo}</h3>
+    <dl class="apunte__data">
+      <div><dt>Materia</dt><dd>{apunte.materia}</dd></div>
+      <div><dt>Cátedra</dt><dd>{apunte.catedra}</dd></div>
+      <div><dt>Año</dt><dd>{apunte.anio}.º año</dd></div>
+      <div><dt>Fecha</dt><dd><time datetime={apunte.fecha}>{formatFecha(apunte.fecha, { month: 'short', year: 'numeric' })}</time></dd></div>
+      {apunte.paginas && <div><dt>Extensión</dt><dd>{apunte.paginas} págs.</dd></div>}
+    </dl>
+  </div>
+  <div class="apunte__actions">
+    <ActionButton label="Ver" icon="eye" href={apunte.archivo} variant="outline" size="sm" pendingTag="Sin archivo" pendingMessage={pendiente} />
+    <ActionButton label="Descargar" icon="download" href={apunte.archivo} size="sm" download pendingTag="Sin archivo" pendingMessage={pendiente} />
+  </div>
+</article>
+
+<style>
+  .apunte {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1rem 1.25rem;
+    padding: 1.35rem;
+    transition: border-color var(--dur), box-shadow var(--dur), transform var(--dur) var(--ease-out);
+  }
+  .apunte:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
+  .apunte__icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 64px;
+    border-radius: 6px;
+    background: var(--navy-900);
+    color: var(--gold-500);
+  }
+  .apunte__year {
+    position: absolute;
+    right: -8px;
+    bottom: -8px;
+    padding: 0.1rem 0.4rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    border-radius: 999px;
+    background: var(--gold-500);
+    color: var(--navy-950);
+  }
+  .apunte__main { display: flex; flex-direction: column; gap: 0.6rem; min-width: 0; }
+  .apunte__title { font-family: var(--font-serif); font-size: 1.35rem; font-weight: 600; line-height: 1.15; }
+  .apunte__data { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; font-size: var(--fs-xs); }
+  .apunte__data dt { color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.66rem; font-weight: 600; }
+  .apunte__data dd { color: var(--ink); font-weight: 500; }
+  .apunte__actions {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--line);
+  }
+
+  /* Vista de lista (se activa desde el selector de vista de la biblioteca) */
+  :global([data-view='list']) .apunte { grid-template-columns: auto 1fr; }
+  @media (min-width: 900px) {
+    :global([data-view='list']) .apunte { grid-template-columns: auto 1fr auto; align-items: center; }
+    :global([data-view='list']) .apunte__actions { grid-column: auto; border-top: 0; padding-top: 0; flex-direction: column; }
+  }
+</style>

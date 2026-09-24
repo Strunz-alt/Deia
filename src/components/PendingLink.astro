@@ -1,0 +1,40 @@
+---
+/**
+ * Enlace de texto que puede estar pendiente (`href: null`).
+ * Si está pendiente se muestra atenuado con la leyenda "(pendiente)" y,
+ * al activarlo, informa que el enlace aún no está disponible.
+ */
+import Icon from './Icon.astro';
+import type { Enlace } from '@/data/types';
+
+interface Props {
+  enlace: Enlace;
+}
+
+const { enlace } = Astro.props;
+const externo = enlace.href?.startsWith('http');
+---
+
+{
+  enlace.href ? (
+    <a href={enlace.href} {...(externo ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+      {enlace.label}
+      {externo && (
+        <>
+          <Icon name="external" size={13} class="pending-link__ext" />
+          <span class="visually-hidden">(se abre en una pestaña nueva)</span>
+        </>
+      )}
+    </a>
+  ) : (
+    <button type="button" class="pending-link" data-pending={`«${enlace.label}»: el enlace todavía no está disponible.`}>
+      {enlace.label} <span class="pending-link__tag">(pendiente)</span>
+    </button>
+  )
+}
+
+<style>
+  a { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .pending-link { padding: 0; text-align: left; cursor: help; text-decoration: underline dashed; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+  .pending-link__tag { font-size: 0.85em; opacity: 0.8; }
+</style>

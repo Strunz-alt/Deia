@@ -1,0 +1,68 @@
+---
+import DateStamp from './DateStamp.astro';
+import Icon from './Icon.astro';
+import type { Charla } from '@/data/types';
+import { estadoEvento } from '@/lib/format';
+
+interface Props {
+  charla: Charla;
+  headingLevel?: 'h2' | 'h3';
+}
+
+const { charla, headingLevel: H = 'h3' } = Astro.props;
+const estado = estadoEvento(charla.fecha);
+---
+
+<article
+  class:list={['card card--interactive charla-card', { 'is-past': estado === 'realizada' }]}
+  data-filter-item
+  data-f-estado={estado}
+  data-f-tipo={charla.tipo}
+  data-search={`${charla.titulo} ${charla.tematica} ${charla.tipo} ${charla.lugar}`}
+>
+  <div class="card__body">
+    <div class="charla-card__top">
+      <DateStamp fecha={charla.fecha} tone={estado === 'proxima' ? 'dark' : 'light'} />
+      <div class="card__meta">
+        {
+          estado === 'proxima' ? (
+            <span class="badge badge--live">Próxima</span>
+          ) : (
+            <span class="badge badge--past">Realizada</span>
+          )
+        }
+        <span class="badge">{charla.tipo}</span>
+        {charla.ejemplo && <span class="badge badge--sample">Ejemplo</span>}
+      </div>
+    </div>
+    <p class="charla-card__tema">{charla.tematica}</p>
+    <H class="card__title">
+      <a href={`/charlas/${charla.slug}`} class="card__link">{charla.titulo}</a>
+    </H>
+    <ul role="list" class="charla-card__info">
+      {charla.hora && <li><Icon name="clock" size={16} />{charla.hora} h</li>}
+      <li><Icon name="pin" size={16} />{charla.lugar}</li>
+    </ul>
+    <span class="card__footer link-arrow" aria-hidden="true">Ver detalle <Icon name="arrow" size={16} /></span>
+  </div>
+</article>
+
+<style>
+  .charla-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+  .charla-card__top .card__meta { justify-content: flex-end; }
+  .charla-card__tema {
+    margin-top: 0.5rem;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold-600);
+  }
+  .charla-card__info { display: grid; gap: 0.35rem; font-size: var(--fs-sm); color: var(--ink-soft); }
+  .charla-card__info li { display: flex; gap: 0.5rem; align-items: center; }
+  .charla-card__info :global(.icon) { flex: none; color: var(--gold-600); }
+  .charla-card :global(.card__footer) { padding-top: 0.75rem; }
+  .charla-card:hover :global(.card__footer) { gap: 0.85rem; }
+  .is-past { background: rgb(255 255 255 / 0.6); }
+  .is-past .card__title { color: var(--ink-soft); }
+</style>

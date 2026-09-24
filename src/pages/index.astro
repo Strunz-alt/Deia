@@ -1,0 +1,448 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import CharlaCard from '@/components/CharlaCard.astro';
+import EmptyState from '@/components/EmptyState.astro';
+import Icon, { type IconName } from '@/components/Icon.astro';
+import NoticiaCard from '@/components/NoticiaCard.astro';
+import SectionHeader from '@/components/SectionHeader.astro';
+import { apuntes, materias } from '@/data/apuntes';
+import { charlas } from '@/data/charlas';
+import { gestiones } from '@/data/logros';
+import { noticias } from '@/data/noticias';
+import { site } from '@/data/site';
+import { estadoEvento, formatFecha, porFechaAsc, porFechaDesc } from '@/lib/format';
+
+const proximas = charlas.filter((c) => estadoEvento(c.fecha) === 'proxima').sort(porFechaAsc).slice(0, 3);
+const destacada = proximas[0];
+const ultimas = [...noticias].sort(porFechaDesc).slice(0, 3);
+const logrosDestacados = gestiones.flatMap((g) => g.logros.map((l) => ({ ...l, gestion: g.nombre }))).slice(0, 3);
+
+const areas: { n: string; titulo: string; texto: string; href: string; icon: IconName }[] = [
+  { n: '01', titulo: 'Charlas', texto: 'Charlas, jornadas y encuentros con especialistas y graduados.', href: '/charlas', icon: 'mic' },
+  { n: '02', titulo: 'Resúmenes y apuntes', texto: 'Material de estudio organizado por materia, cátedra y año.', href: '/apuntes', icon: 'book' },
+  { n: '03', titulo: 'Acción Social', texto: 'Voluntariados, colectas y proyectos con la comunidad.', href: '/accion-social', icon: 'heart' },
+  { n: '04', titulo: 'Deportes', texto: 'Disciplinas, entrenamientos y el camino a las INTERUCA.', href: '/deportes', icon: 'ball' },
+  { n: '05', titulo: 'Relaciones Institucionales', texto: 'Vínculos con universidades, instituciones y organizaciones.', href: '/relaciones-institucionales', icon: 'landmark' },
+  { n: '06', titulo: 'El Centro', texto: 'Quiénes somos, cómo trabajamos y qué logramos.', href: '/miembros', icon: 'users' },
+];
+
+const materiasDestacadas = materias.slice(0, 6);
+---
+
+<BaseLayout description={site.descripcion}>
+  <!-- ============ HERO ============ -->
+  <section class="hero">
+    <div class="hero__bg" aria-hidden="true">
+      <span class="hero__glyph">§</span>
+    </div>
+    <div class="container hero__inner">
+      <div class="hero__text">
+        <p class="eyebrow hero__eyebrow" data-reveal>Facultad de Derecho · UCA</p>
+        <h1 class="display hero__title" data-reveal style="--reveal-i:1">
+          Centro de Estudiantes <br />de <em>Derecho</em>
+        </h1>
+        <p class="hero__lead" data-reveal style="--reveal-i:2">
+          Un espacio de estudiantes para estudiantes: acompañamos la vida académica, impulsamos iniciativas solidarias y
+          construimos comunidad dentro y fuera de las aulas.
+        </p>
+        <div class="hero__actions" data-reveal style="--reveal-i:3">
+          <a href="/apuntes" class="btn btn--gold"><Icon name="book" />Resúmenes y apuntes</a>
+          <a href="/charlas" class="btn btn--light">Próximas actividades <Icon name="arrow" class="icon-arrow" /></a>
+        </div>
+      </div>
+
+      <aside class="hero__card" data-reveal style="--reveal-i:3" aria-label="Próxima actividad">
+        {
+          destacada ? (
+            <a href={`/charlas/${destacada.slug}`} class="next">
+              <span class="next__label">
+                <span class="badge badge--live">Próxima actividad</span>
+                {destacada.ejemplo && <span class="badge badge--sample">Ejemplo</span>}
+              </span>
+              <span class="next__date">{formatFecha(destacada.fecha, { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+              <span class="next__title">{destacada.titulo}</span>
+              <span class="next__meta">
+                <Icon name="pin" size={16} /> {destacada.lugar}
+              </span>
+              <span class="next__cta">
+                Ver detalle <Icon name="arrow" size={16} />
+              </span>
+            </a>
+          ) : (
+            <div class="next">
+              <span class="next__label"><span class="badge">Agenda</span></span>
+              <span class="next__title">Pronto anunciaremos nuevas actividades.</span>
+            </div>
+          )
+        }
+      </aside>
+    </div>
+    <div class="container">
+      <ul role="list" class="hero__pillars" data-reveal-stagger>
+        <li><span>I.</span> Formación académica</li>
+        <li><span>II.</span> Compromiso social</li>
+        <li><span>III.</span> Deporte y comunidad</li>
+        <li><span>IV.</span> Vínculo institucional</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ ÁREAS ============ -->
+  <section class="section" aria-labelledby="areas-title">
+    <div class="container">
+      <SectionHeader
+        id="areas-title"
+        eyebrow="Nuestras áreas"
+        title="Todo lo que el Centro <em>hace</em> por vos"
+        lead="Accedé rápidamente a cada espacio. Cada área tiene su equipo, su agenda y sus propuestas para sumarte."
+      />
+      <ul role="list" class="areas" data-reveal-stagger>
+        {
+          areas.map((a) => (
+            <li>
+              <a href={a.href} class="area">
+                <span class="area__n">{a.n}</span>
+                <span class="area__icon"><Icon name={a.icon} size={24} /></span>
+                <span class="area__title">{a.titulo}</span>
+                <span class="area__text">{a.texto}</span>
+                <span class="area__arrow"><Icon name="arrow" size={18} /></span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ APUNTES ============ -->
+  <section class="section section--tight" aria-labelledby="apuntes-title">
+    <div class="container">
+      <div class="apuntes-band" data-reveal>
+        <div class="apuntes-band__text">
+          <p class="eyebrow">Biblioteca</p>
+          <h2 class="h2" id="apuntes-title">Resúmenes y apuntes, <em>ordenados</em> para estudiar mejor</h2>
+          <p class="lead">
+            Buscá por materia, cátedra o año de la carrera. {apuntes.length} materiales de ejemplo para probar la búsqueda.
+          </p>
+        </div>
+        <div class="apuntes-band__search">
+          <form action="/apuntes" method="get" class="quick-search" role="search">
+            <label for="home-q" class="visually-hidden">Buscar apuntes</label>
+            <Icon name="search" size={20} />
+            <input id="home-q" name="q" type="search" placeholder="Ej.: obligaciones, teoría del delito…" autocomplete="off" />
+            <button class="btn btn--gold btn--sm" type="submit">Buscar</button>
+          </form>
+          <p class="apuntes-band__label">Materias</p>
+          <ul role="list" class="chips">
+            {
+              materiasDestacadas.map((m) => (
+                <li>
+                  <a class="chip chip--dark" href={`/apuntes?materia=${encodeURIComponent(m.nombre)}`}>
+                    {m.nombre}
+                  </a>
+                </li>
+              ))
+            }
+            <li><a class="chip chip--dark chip--more" href="/apuntes">Ver todas <Icon name="arrow" size={14} /></a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PRÓXIMAS ACTIVIDADES ============ -->
+  <section class="section" aria-labelledby="agenda-title">
+    <div class="container">
+      <SectionHeader
+        id="agenda-title"
+        eyebrow="Agenda"
+        title="Próximas actividades"
+        link={{ label: 'Ver todas las charlas', href: '/charlas' }}
+      />
+      {
+        proximas.length > 0 ? (
+          <div class="grid grid--3" data-reveal-stagger>
+            {proximas.map((c) => (
+              <CharlaCard charla={c} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState icon="calendar" title="Sin actividades programadas" text="Pronto vamos a anunciar nuevas charlas y encuentros." />
+        )
+      }
+    </div>
+  </section>
+
+  <!-- ============ NOVEDADES ============ -->
+  <section class="section section--sand" aria-labelledby="novedades-title">
+    <div class="container">
+      <SectionHeader
+        id="novedades-title"
+        eyebrow="Novedades"
+        title="Últimas noticias"
+        link={{ label: 'Ver todas las noticias', href: '/noticias' }}
+      />
+      {
+        ultimas.length > 0 ? (
+          <div class="news-layout" data-reveal-stagger>
+            {ultimas.map((n, i) => (
+              <NoticiaCard noticia={n} featured={i === 0} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState icon="news" title="Todavía no hay noticias" />
+        )
+      }
+    </div>
+  </section>
+
+  <!-- ============ LOGROS ============ -->
+  <section class="section section--dark logros-home" aria-labelledby="logros-title">
+    <div class="container">
+      <SectionHeader
+        id="logros-title"
+        eyebrow="Iniciativas destacadas"
+        title="Lo que <em>construimos</em> juntos"
+        lead="Una selección de iniciativas y resultados de las últimas gestiones."
+        link={{ label: 'Ver todos los logros', href: '/logros' }}
+      />
+      <ol role="list" class="logros-list" data-reveal-stagger>
+        {
+          logrosDestacados.map((l, i) => (
+            <li class="logro-row">
+              <span class="logro-row__n">{String(i + 1).padStart(2, '0')}</span>
+              <div class="logro-row__main">
+                <p class="logro-row__meta">
+                  {l.gestion} · {l.area}
+                  {l.ejemplo && <span class="badge badge--sample">Ejemplo</span>}
+                </p>
+                <h3 class="logro-row__title">{l.titulo}</h3>
+                <p class="logro-row__text">{l.descripcion}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+
+      <a href="/deportes/interuca" class="interuca-teaser" data-reveal>
+        <span class="interuca-teaser__icon"><Icon name="trophy" size={34} /></span>
+        <span class="interuca-teaser__text">
+          <span class="interuca-teaser__kicker">Historial deportivo</span>
+          <span class="interuca-teaser__title">INTERUCA</span>
+        </span>
+        <span class="interuca-teaser__cta">Ver historial <Icon name="arrow" size={18} /></span>
+      </a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  /* ---------- Hero ---------- */
+  .hero {
+    position: relative;
+    overflow: hidden;
+    background: var(--navy-900);
+    color: var(--ivory);
+    padding-block: clamp(3.5rem, 2rem + 6vw, 7rem) 0;
+  }
+  .hero__bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 70% at 85% 20%, rgb(184 149 92 / 0.16), transparent 60%),
+      radial-gradient(ellipse 50% 60% at 0% 100%, rgb(44 90 160 / 0.25), transparent 60%),
+      linear-gradient(to right, rgb(255 255 255 / 0.045) 1px, transparent 1px) 0 0 / 120px 100%;
+    pointer-events: none;
+  }
+  .hero__glyph {
+    position: absolute;
+    right: -2vw;
+    bottom: -12vw;
+    font-family: var(--font-serif);
+    font-size: clamp(22rem, 40vw, 44rem);
+    line-height: 1;
+    color: var(--gold-500);
+    opacity: 0.07;
+    user-select: none;
+  }
+  .hero__inner {
+    position: relative;
+    display: grid;
+    gap: 3rem;
+    align-items: end;
+  }
+  @media (min-width: 960px) {
+    .hero__inner { grid-template-columns: 1.5fr 1fr; gap: 4rem; }
+  }
+  .hero__eyebrow { color: var(--gold-500); }
+  .hero__title { margin-top: 1.25rem; font-size: clamp(2.9rem, 1.6rem + 5.4vw, 6rem); line-height: 0.98; }
+  .hero__title em { color: var(--gold-500); }
+  .hero__lead { margin-top: 1.5rem; max-width: 54ch; font-size: var(--fs-md); color: #c9cfdd; }
+  .hero__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2.25rem; }
+
+  .next {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.75rem;
+    border: 1px solid rgb(255 255 255 / 0.14);
+    border-radius: var(--radius-lg);
+    background: rgb(255 255 255 / 0.04);
+    backdrop-filter: blur(6px);
+    transition: border-color var(--dur), background-color var(--dur), transform var(--dur) var(--ease-out);
+  }
+  a.next:hover { border-color: var(--gold-500); background: rgb(255 255 255 / 0.07); transform: translateY(-3px); }
+  .next__label { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .next__date { font-size: var(--fs-sm); color: var(--gold-500); font-weight: 500; }
+  .next__date::first-letter { text-transform: uppercase; }
+  .next__title { font-family: var(--font-serif); font-size: 1.75rem; font-weight: 600; line-height: 1.12; }
+  .next__meta { display: flex; gap: 0.5rem; align-items: center; font-size: var(--fs-sm); color: #b9c1d4; }
+  .next__cta { display: inline-flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem; font-size: var(--fs-sm); font-weight: 600; transition: gap var(--dur) var(--ease-out); }
+  a.next:hover .next__cta { gap: 0.85rem; }
+
+  .hero__pillars {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    margin-top: clamp(3rem, 2rem + 4vw, 5.5rem);
+    border-top: 1px solid rgb(255 255 255 / 0.14);
+  }
+  .hero__pillars li {
+    padding: 1.25rem 1rem 1.5rem 0;
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    color: #dfe3ec;
+  }
+  .hero__pillars span { font-family: var(--font-serif); font-style: italic; color: var(--gold-500); margin-right: 0.35rem; font-size: 1.1rem; }
+  @media (min-width: 760px) {
+    .hero__pillars { grid-template-columns: repeat(4, 1fr); }
+    .hero__pillars li + li { padding-left: 1.25rem; border-left: 1px solid rgb(255 255 255 / 0.14); }
+  }
+
+  /* ---------- Áreas ---------- */
+  .areas {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    border-top: 1px solid var(--line);
+    border-left: 1px solid var(--line);
+  }
+  .area {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.5rem 1rem;
+    height: 100%;
+    padding: 2rem 1.75rem;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: transparent;
+    overflow: hidden;
+    isolation: isolate;
+    transition: color var(--dur) var(--ease-out);
+  }
+  .area::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--navy-900);
+    clip-path: inset(100% 0 0 0);
+    transition: clip-path 450ms var(--ease-out);
+  }
+  .area:hover::before, .area:focus-visible::before { clip-path: inset(0 0 0 0); }
+  .area:hover, .area:focus-visible { color: var(--ivory); }
+  .area__n { font-family: var(--font-serif); font-style: italic; font-size: 1.1rem; color: var(--gold-600); transition: color var(--dur); }
+  .area__icon { grid-row: 1; grid-column: 2; color: var(--gold-600); transition: color var(--dur), transform var(--dur) var(--ease-out); }
+  .area__title { grid-column: 1 / -1; margin-top: 1.75rem; font-family: var(--font-serif); font-size: 1.75rem; font-weight: 600; line-height: 1.1; }
+  .area__text { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--ink-soft); transition: color var(--dur); }
+  .area__arrow { grid-column: 1 / -1; margin-top: 0.75rem; color: var(--navy-900); transition: transform var(--dur) var(--ease-out), color var(--dur); }
+  .area:hover :is(.area__n, .area__icon, .area__arrow) { color: var(--gold-500); }
+  .area:hover .area__text { color: #c9cfdd; }
+  .area:hover .area__arrow { transform: translateX(6px); }
+  .area:hover .area__icon { transform: rotate(-8deg) scale(1.08); }
+  .area:focus-visible { outline-offset: -3px; border-radius: 0; }
+
+  /* ---------- Banda de apuntes ---------- */
+  .apuntes-band {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2rem;
+    padding: clamp(2rem, 1.25rem + 3vw, 3.5rem);
+    border-radius: var(--radius-lg);
+    background:
+      radial-gradient(ellipse 60% 90% at 100% 0%, rgb(184 149 92 / 0.2), transparent 60%),
+      var(--navy-800);
+    color: var(--ivory);
+    --color-muted: #c9cfdd;
+    --color-accent-text: var(--gold-500);
+  }
+  @media (min-width: 960px) {
+    .apuntes-band { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: center; gap: 3.5rem; }
+  }
+  .apuntes-band__text > * + * { margin-top: 1rem; }
+  .quick-search {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.4rem 0.4rem 0.4rem 1rem;
+    border-radius: 999px;
+    background: var(--paper);
+    color: var(--ink-soft);
+    transition: box-shadow var(--dur);
+  }
+  .quick-search:focus-within { box-shadow: 0 0 0 3px rgb(184 149 92 / 0.55); }
+  .quick-search input { flex: 1; min-width: 0; border: 0; background: none; padding: 0.55rem 0; color: var(--ink); }
+  .quick-search input:focus { outline: none; }
+  .apuntes-band__label { margin: 1.5rem 0 0.75rem; font-size: var(--fs-xs); letter-spacing: 0.14em; text-transform: uppercase; font-weight: 600; color: var(--gold-500); }
+  .chip--dark { display: inline-flex; align-items: center; gap: 0.35rem; background: transparent; color: var(--ivory); border-color: rgb(255 255 255 / 0.25); }
+  .chip--dark:hover { background: var(--ivory); color: var(--navy-900); border-color: var(--ivory); }
+  .chip--more { border-style: dashed; }
+
+  /* ---------- Noticias ---------- */
+  .news-layout { display: grid; gap: clamp(1rem, 0.6rem + 1.5vw, 1.75rem); }
+  @media (min-width: 700px) {
+    .news-layout { grid-template-columns: 1fr 1fr; }
+    .news-layout > :global(:first-child) { grid-column: 1 / -1; }
+  }
+
+  /* ---------- Logros ---------- */
+  .logros-list { border-top: 1px solid rgb(255 255 255 / 0.14); }
+  .logro-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1.5rem;
+    padding: 1.75rem 0;
+    border-bottom: 1px solid rgb(255 255 255 / 0.14);
+    transition: padding-left var(--dur) var(--ease-out);
+  }
+  .logro-row:hover { padding-left: 0.75rem; }
+  .logro-row__n { font-family: var(--font-serif); font-style: italic; font-size: 2.4rem; line-height: 1; color: var(--gold-500); }
+  .logro-row__meta { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; font-size: var(--fs-xs); letter-spacing: 0.1em; text-transform: uppercase; color: #9aa3b8; }
+  .logro-row__title { margin-top: 0.4rem; font-family: var(--font-serif); font-size: var(--fs-lg); font-weight: 600; }
+  .logro-row__text { margin-top: 0.3rem; color: #b9c1d4; font-size: var(--fs-sm); max-width: 60ch; }
+  @media (min-width: 900px) {
+    .logro-row__main { display: grid; grid-template-columns: 1fr 1.2fr; gap: 0.25rem 2rem; align-items: baseline; }
+    .logro-row__meta { grid-column: 1 / -1; }
+    .logro-row__title { margin-top: 0; }
+  }
+
+  .interuca-teaser {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1.25rem 1.75rem;
+    margin-top: 3rem;
+    padding: 1.75rem 2rem;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(110deg, var(--gold-500), #d8bb85);
+    color: var(--navy-950);
+    transition: transform var(--dur) var(--ease-out), box-shadow var(--dur);
+  }
+  .interuca-teaser:hover { transform: translateY(-3px); box-shadow: 0 20px 40px -20px rgb(0 0 0 / 0.6); }
+  .interuca-teaser__icon { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--navy-950); color: var(--gold-500); }
+  .interuca-teaser__text { display: flex; flex-direction: column; flex: 1; }
+  .interuca-teaser__kicker { font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+  .interuca-teaser__title { font-family: var(--font-sport); font-size: clamp(2.5rem, 2rem + 2vw, 3.5rem); line-height: 0.95; letter-spacing: 0.02em; }
+  .interuca-teaser__cta { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: var(--fs-sm); transition: gap var(--dur) var(--ease-out); }
+  .interuca-teaser:hover .interuca-teaser__cta { gap: 0.9rem; }
+</style>

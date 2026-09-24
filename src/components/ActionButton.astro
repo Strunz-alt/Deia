@@ -1,0 +1,66 @@
+---
+/**
+ * Botón de acción que depende de un enlace, archivo o formulario.
+ * - Con `href`: enlace real con estilo de botón.
+ * - Con `href: null`: botón "pendiente" que explica que la acción todavía no
+ *   está disponible. Nunca simula un envío o descarga exitosa.
+ */
+import Icon, { type IconName } from './Icon.astro';
+
+interface Props {
+  label: string;
+  href: string | null;
+  icon?: IconName;
+  variant?: 'primary' | 'gold' | 'outline' | 'light';
+  size?: 'sm' | 'md';
+  block?: boolean;
+  /** Mensaje que se muestra al activar el botón pendiente. */
+  pendingMessage?: string;
+  /** Texto breve del estado pendiente. */
+  pendingTag?: string;
+  download?: boolean;
+  class?: string;
+}
+
+const {
+  label,
+  href,
+  icon,
+  variant = 'primary',
+  size = 'md',
+  block = false,
+  pendingMessage,
+  pendingTag = 'Pendiente',
+  download = false,
+  class: className,
+} = Astro.props;
+
+const variantClass = variant === 'primary' ? '' : `btn--${variant}`;
+const classes = ['btn', variantClass, { 'btn--sm': size === 'sm', 'btn--block': block }, className];
+const externo = href?.startsWith('http');
+---
+
+{
+  href ? (
+    <a
+      href={href}
+      class:list={classes}
+      download={download || undefined}
+      {...(externo ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+    >
+      {icon && <Icon name={icon} />}
+      {label}
+      {!icon && <Icon name="arrow" class="icon-arrow" />}
+    </a>
+  ) : (
+    <button
+      type="button"
+      class:list={[...classes.filter((c) => c !== variantClass), 'btn--pending']}
+      data-pending={pendingMessage ?? `«${label}» todavía no está disponible. Se habilitará cuando se incorpore la información definitiva.`}
+    >
+      {icon && <Icon name={icon} />}
+      {label}
+      <span class="pending-tag">{pendingTag}</span>
+    </button>
+  )
+}

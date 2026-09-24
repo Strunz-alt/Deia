@@ -1,0 +1,325 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import ActionButton from '@/components/ActionButton.astro';
+import ApunteCard from '@/components/ApunteCard.astro';
+import EmptyState from '@/components/EmptyState.astro';
+import Icon from '@/components/Icon.astro';
+import PageHero from '@/components/PageHero.astro';
+import SampleNotice from '@/components/SampleNotice.astro';
+import { apuntes, materias, tiposMaterial } from '@/data/apuntes';
+import { porFechaDesc } from '@/lib/format';
+
+const ordenados = [...apuntes].sort(porFechaDesc);
+const anios = [...new Set(materias.map((m) => m.anio))].sort();
+const catedras = [...new Set(materias.flatMap((m) => m.catedras))].sort();
+const catedrasPorMateria = Object.fromEntries(materias.map((m) => [m.nombre, m.catedras]));
+---
+
+<BaseLayout
+  title="Resúmenes y apuntes"
+  description="Biblioteca de resúmenes y apuntes de la Facultad de Derecho de la UCA, organizada por materia, cátedra y año."
+>
+  <PageHero
+    eyebrow="Biblioteca"
+    title="Resúmenes y apuntes"
+    lead="Material de estudio organizado por materia, cátedra y año de la carrera. Buscá, filtrá y encontrá lo que necesitás para tu próxima cursada o examen."
+    crumbs={[]}
+    numeral="V"
+  >
+    <ul role="list" class="lib-stats">
+      <li><strong>{apuntes.length}</strong> materiales</li>
+      <li><strong>{materias.length}</strong> materias</li>
+      <li><strong>{anios.length}</strong> años de la carrera</li>
+    </ul>
+  </PageHero>
+
+  <section class="section section--tight">
+    <div class="container" data-filter-root data-filter-manual id="biblioteca" data-catedras={JSON.stringify(catedrasPorMateria)}>
+      <SampleNotice
+        source="src/data/apuntes.ts"
+        text="Los materiales son de ejemplo y todavía no tienen archivos asociados: los botones «Ver» y «Descargar» se habilitarán cuando se carguen los PDF."
+      />
+
+      <div class="library">
+        <aside class="filters" aria-label="Filtros de la biblioteca">
+          <div class="filters__head">
+            <h2 class="filters__title"><Icon name="filter" size={18} /> Filtros</h2>
+            <button type="button" class="reset" data-filter-reset>Limpiar</button>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="f-anio">Año de la carrera</label>
+            <select id="f-anio" class="select" data-filter-key="anio">
+              <option value="">Todos los años</option>
+              {anios.map((a) => <option value={String(a)}>{a}.º año</option>)}
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="f-materia">Materia</label>
+            <select id="f-materia" class="select" data-filter-key="materia">
+              <option value="">Todas las materias</option>
+              {
+                anios.map((a) => (
+                  <optgroup label={`${a}.º año`}>
+                    {materias
+                      .filter((m) => m.anio === a)
+                      .map((m) => (
+                        <option value={m.nombre} data-anio={String(a)}>
+                          {m.nombre}
+                        </option>
+                      ))}
+                  </optgroup>
+                ))
+              }
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="f-catedra">Cátedra</label>
+            <select id="f-catedra" class="select" data-filter-key="catedra">
+              <option value="">Todas las cátedras</option>
+              {catedras.map((c) => <option value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="f-tipo">Tipo de material</label>
+            <select id="f-tipo" class="select" data-filter-key="tipo">
+              <option value="">Todos los tipos</option>
+              {tiposMaterial.map((t) => <option value={t}>{t}</option>)}
+            </select>
+          </div>
+
+          <div class="share-box">
+            <p class="share-box__title">¿Tenés material para compartir?</p>
+            <p class="share-box__text">Sumá tus resúmenes a la biblioteca del Centro.</p>
+            <ActionButton
+              label="Enviar material"
+              href={null}
+              variant="outline"
+              size="sm"
+              block
+              pendingTag="Próximamente"
+              pendingMessage="El formulario para enviar material todavía no está habilitado."
+            />
+          </div>
+        </aside>
+
+        <div class="library__main">
+          <div class="searchbar">
+            <label for="lib-q" class="visually-hidden">Buscar en la biblioteca</label>
+            <Icon name="search" size={20} />
+            <input id="lib-q" type="search" placeholder="Buscar por título, materia o cátedra…" data-filter-search autocomplete="off" />
+            <kbd class="searchbar__kbd" aria-hidden="true">/</kbd>
+          </div>
+
+          <div class="results-bar">
+            <p class="results-bar__count" data-filter-count data-one="material" data-many="materiales" aria-live="polite"></p>
+            <div class="results-bar__tools">
+              <label class="sort">
+                <span class="visually-hidden">Ordenar</span>
+                <select class="select select--sm" data-sort>
+                  <option value="recientes">Más recientes</option>
+                  <option value="materia">Materia (A–Z)</option>
+                  <option value="anio">Año de la carrera</option>
+                </select>
+              </label>
+              <div class="view-toggle" role="group" aria-label="Vista">
+                <button type="button" aria-pressed="true" data-view-btn="grid" aria-label="Vista en cuadrícula" title="Cuadrícula"><Icon name="grid" size={18} /></button>
+                <button type="button" aria-pressed="false" data-view-btn="list" aria-label="Vista en lista" title="Lista"><Icon name="list" size={18} /></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="active-filters" data-active-filters aria-live="polite"></div>
+
+          {
+            ordenados.length > 0 ? (
+              <div class="lib-grid" data-view="grid" data-lib-list>
+                {ordenados.map((a) => (
+                  <ApunteCard apunte={a} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState icon="book" title="La biblioteca todavía está vacía" text="Pronto vamos a publicar los primeros resúmenes y apuntes." />
+            )
+          }
+          <EmptyState filterEmpty icon="search" title="No encontramos materiales" text="No hay resultados para esa combinación. Probá con otro término o quitá algún filtro.">
+            <button type="button" class="btn btn--outline btn--sm" data-filter-reset>Limpiar filtros</button>
+          </EmptyState>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  import { initFilters } from '@/scripts/filters';
+
+  const root = document.querySelector<HTMLElement>('#biblioteca')!;
+  const materia = root.querySelector<HTMLSelectElement>('#f-materia')!;
+  const catedra = root.querySelector<HTMLSelectElement>('#f-catedra')!;
+  const anio = root.querySelector<HTMLSelectElement>('#f-anio')!;
+  const list = root.querySelector<HTMLElement>('[data-lib-list]');
+  const chipsBox = root.querySelector<HTMLElement>('[data-active-filters]')!;
+  const map: Record<string, string[]> = JSON.parse(root.dataset.catedras ?? '{}');
+
+  /** Materias disponibles según el año elegido y cátedras según la materia. */
+  const syncDependents = () => {
+    [...materia.querySelectorAll('optgroup')].forEach((g) => {
+      const visible = !anio.value || g.label.startsWith(`${anio.value}.`);
+      g.hidden = !visible;
+      g.disabled = !visible;
+    });
+    if (materia.selectedOptions[0]?.parentElement instanceof HTMLOptGroupElement && materia.selectedOptions[0].parentElement.disabled) {
+      materia.value = '';
+    }
+    const allowed = materia.value ? map[materia.value] ?? [] : null;
+    [...catedra.options].forEach((o) => {
+      if (!o.value) return;
+      o.disabled = allowed ? !allowed.includes(o.value) : false;
+    });
+    if (catedra.selectedOptions[0]?.disabled) catedra.value = '';
+  };
+
+  const labels: Record<string, string> = { anio: 'Año', materia: 'Materia', catedra: 'Cátedra', tipo: 'Tipo' };
+
+  const renderActive = (state: { q: string; values: Record<string, string> }) => {
+    chipsBox.innerHTML = '';
+    const entries = Object.entries(state.values).filter(([, v]) => v);
+    if (state.q) entries.unshift(['q', state.q]);
+    entries.forEach(([key, value]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'active-chip';
+      const text = key === 'q' ? `“${value}”` : key === 'anio' ? `${value}.º año` : value;
+      b.innerHTML = `<span></span><span aria-hidden="true">×</span>`;
+      b.firstElementChild!.textContent = `${key === 'q' ? 'Búsqueda' : labels[key]}: ${text}`;
+      b.setAttribute('aria-label', `Quitar filtro ${key === 'q' ? 'de búsqueda' : labels[key]}`);
+      b.addEventListener('click', () => {
+        if (key === 'q') root.querySelector<HTMLInputElement>('[data-filter-search]')!.value = '';
+        else root.querySelector<HTMLSelectElement>(`select[data-filter-key="${key}"]`)!.value = '';
+        syncDependents();
+        filters.apply();
+      });
+      chipsBox.append(b);
+    });
+  };
+
+  [anio, materia].forEach((s) => s.addEventListener('change', syncDependents, { capture: true }));
+  syncDependents();
+  const filters = initFilters(root, renderActive);
+  syncDependents();
+  filters.apply();
+  root.querySelectorAll('[data-filter-reset]').forEach((r) => r.addEventListener('click', syncDependents));
+
+  // Orden
+  const sortSelect = root.querySelector<HTMLSelectElement>('[data-sort]')!;
+  sortSelect.addEventListener('change', () => {
+    if (!list) return;
+    const items = [...list.querySelectorAll<HTMLElement>('[data-filter-item]')];
+    const by = sortSelect.value;
+    const cmp: Record<string, (a: HTMLElement, b: HTMLElement) => number> = {
+      recientes: (a, b) => (b.dataset.fecha ?? '').localeCompare(a.dataset.fecha ?? ''),
+      materia: (a, b) => (a.dataset.fMateria ?? '').localeCompare(b.dataset.fMateria ?? '', 'es'),
+      anio: (a, b) => Number(a.dataset.fAnio) - Number(b.dataset.fAnio) || (a.dataset.fMateria ?? '').localeCompare(b.dataset.fMateria ?? '', 'es'),
+    };
+    items.sort(cmp[by]).forEach((el) => list.append(el));
+  });
+
+  // Vista cuadrícula / lista (se recuerda en este navegador)
+  const viewBtns = [...root.querySelectorAll<HTMLButtonElement>('[data-view-btn]')];
+  const setView = (v: string) => {
+    list?.setAttribute('data-view', v);
+    viewBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.viewBtn === v)));
+    try { localStorage.setItem('apuntes-view', v); } catch { /* sin almacenamiento */ }
+  };
+  viewBtns.forEach((b) => b.addEventListener('click', () => setView(b.dataset.viewBtn!)));
+  try {
+    const saved = localStorage.getItem('apuntes-view');
+    if (saved === 'list' || saved === 'grid') setView(saved);
+  } catch { /* sin almacenamiento */ }
+
+  // Atajo "/" para enfocar el buscador
+  const search = root.querySelector<HTMLInputElement>('[data-filter-search]')!;
+  document.addEventListener('keydown', (e) => {
+    const t = e.target as HTMLElement;
+    if (e.key === '/' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(t.tagName)) {
+      e.preventDefault();
+      search.focus();
+    }
+  });
+</script>
+
+<style>
+  .lib-stats { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; margin-top: 2rem !important; font-size: var(--fs-sm); color: var(--ink-soft); }
+  .lib-stats strong { font-family: var(--font-serif); font-size: 2rem; font-weight: 600; color: var(--navy-900); margin-right: 0.35rem; }
+
+  .library { display: grid; gap: 2rem; }
+  @media (min-width: 1000px) {
+    .library { grid-template-columns: 280px 1fr; gap: 3rem; align-items: start; }
+    .filters { position: sticky; top: calc(var(--header-h) + 1.5rem); }
+  }
+
+  .filters { display: grid; gap: 1.1rem; padding: 1.5rem; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); }
+  .filters__head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 0.9rem; border-bottom: 1px solid var(--line); }
+  .filters__title { display: flex; align-items: center; gap: 0.5rem; font-size: var(--fs-sm); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+  .filters__title :global(.icon) { color: var(--gold-600); }
+  @media (max-width: 999px) {
+    .filters { grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); }
+    .filters__head, .share-box { grid-column: 1 / -1; }
+  }
+
+  .share-box { margin-top: 0.5rem; padding: 1.1rem; border-radius: var(--radius-sm); background: var(--sand); }
+  .share-box__title { font-family: var(--font-serif); font-size: 1.2rem; font-weight: 600; }
+  .share-box__text { font-size: var(--fs-xs); color: var(--ink-soft); margin: 0.25rem 0 0.9rem; }
+
+  .searchbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0 1.1rem;
+    min-height: 58px;
+    background: var(--paper);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    color: var(--ink-faint);
+    transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+  }
+  .searchbar:focus-within { border-color: var(--blue-600); box-shadow: 0 0 0 3px rgb(44 90 160 / 0.18); }
+  .searchbar input { flex: 1; min-width: 0; border: 0; background: none; font-size: var(--fs-md); color: var(--ink); padding: 0.75rem 0; }
+  .searchbar input:focus { outline: none; }
+  .searchbar__kbd { font-family: var(--font-sans); font-size: var(--fs-xs); padding: 0.1rem 0.45rem; border: 1px solid var(--line-strong); border-radius: 4px; }
+
+  .results-bar__tools { display: flex; align-items: center; gap: 0.6rem; }
+  .select--sm { min-height: 38px; padding-block: 0.35rem; font-size: var(--fs-sm); }
+  .view-toggle { display: flex; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); overflow: hidden; }
+  .view-toggle button { display: grid; place-items: center; width: 38px; height: 36px; color: var(--ink-soft); transition: background-color var(--dur-fast), color var(--dur-fast); }
+  .view-toggle button:hover { background: var(--sand); }
+  .view-toggle button[aria-pressed='true'] { background: var(--navy-900); color: var(--ivory); }
+  @media (max-width: 560px) {
+    .results-bar { flex-wrap: wrap; }
+    .view-toggle { display: none; }
+  }
+
+  .active-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+  .active-filters:empty { display: none; }
+  .active-filters :global(.active-chip) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.5rem 0.3rem 0.85rem;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    border-radius: 999px;
+    background: var(--navy-100);
+    color: var(--navy-900);
+    transition: background-color var(--dur-fast);
+  }
+  .active-filters :global(.active-chip:hover) { background: #d3dbea; }
+  .active-filters :global(.active-chip span:last-child) { font-size: 1rem; line-height: 1; }
+
+  .lib-grid { display: grid; gap: 1rem; }
+  .lib-grid[data-view='grid'] { grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
+</style>

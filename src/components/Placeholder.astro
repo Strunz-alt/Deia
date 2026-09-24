@@ -1,0 +1,58 @@
+---
+/**
+ * Marcador de imagen pendiente. Se usa en lugar de fotos que todavía no se
+ * incorporaron. Si recibe `image`, muestra la imagen real.
+ */
+import Icon, { type IconName } from './Icon.astro';
+import type { Imagen } from '@/data/types';
+
+interface Props {
+  image?: Imagen | null;
+  label?: string;
+  icon?: IconName;
+  ratio?: string;
+  tone?: 'light' | 'dark' | 'gold';
+  class?: string;
+}
+
+const { image, label = 'Imagen pendiente', icon = 'image', ratio = '16 / 10', tone = 'light', class: className } = Astro.props;
+---
+
+{
+  image ? (
+    <img src={image.src} alt={image.alt} class:list={['ph-img', className]} style={`aspect-ratio:${ratio}`} loading="lazy" />
+  ) : (
+    <div class:list={['ph', `ph--${tone}`, className]} style={`aspect-ratio:${ratio}`} role="img" aria-label={label}>
+      <span class="ph__inner">
+        <Icon name={icon} size={28} />
+        <span class="ph__label">{label}</span>
+      </span>
+    </div>
+  )
+}
+
+<style>
+  .ph-img { width: 100%; object-fit: cover; }
+  .ph {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 100%;
+    overflow: hidden;
+    color: var(--ink-faint);
+    background-color: var(--sand);
+    background-image: repeating-linear-gradient(135deg, transparent 0 14px, rgb(14 27 51 / 0.035) 14px 15px);
+  }
+  .ph--dark {
+    color: rgb(255 255 255 / 0.55);
+    background-color: var(--navy-800);
+    background-image: repeating-linear-gradient(135deg, transparent 0 14px, rgb(255 255 255 / 0.04) 14px 15px);
+  }
+  .ph--gold {
+    color: #6b5530;
+    background-color: var(--gold-200);
+    background-image: repeating-linear-gradient(135deg, transparent 0 14px, rgb(140 107 54 / 0.08) 14px 15px);
+  }
+  .ph__inner { display: flex; flex-direction: column; align-items: center; gap: 0.45rem; }
+  .ph__label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
+</style>

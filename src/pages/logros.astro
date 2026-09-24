@@ -1,0 +1,152 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import EmptyState from '@/components/EmptyState.astro';
+import PageHero from '@/components/PageHero.astro';
+import SampleNotice from '@/components/SampleNotice.astro';
+import { gestiones } from '@/data/logros';
+import { slugify } from '@/lib/format';
+
+const total = gestiones.reduce((n, g) => n + g.logros.length, 0);
+const areas = [...new Set(gestiones.flatMap((g) => g.logros.map((l) => l.area)))];
+---
+
+<BaseLayout title="Logros del Centro" description="Iniciativas y resultados del Centro de Estudiantes de Derecho de la UCA, organizados por gestión.">
+  <PageHero
+    eyebrow="El Centro"
+    title="Logros e iniciativas"
+    lead="Lo que hicimos, gestión por gestión: iniciativas concretas, su alcance y el impacto que tuvieron en la comunidad de la Facultad."
+    crumbs={[{ label: 'El Centro' }]}
+    numeral="IX"
+  >
+    <ul role="list" class="logros-stats">
+      <li><strong>{gestiones.length}</strong> gestiones</li>
+      <li><strong>{total}</strong> iniciativas</li>
+      <li><strong>{areas.length}</strong> áreas</li>
+    </ul>
+  </PageHero>
+
+  <section class="section section--tight">
+    <div class="container">
+      <SampleNotice source="src/data/logros.ts" text="Las iniciativas y cifras son ilustrativas (los «00» indican datos a completar) y no representan resultados reales." />
+
+      {
+        gestiones.length === 0 ? (
+          <EmptyState icon="star" title="Todavía no hay logros publicados" />
+        ) : (
+          <div class="gestiones">
+            <nav class="gestion-nav" aria-label="Gestiones">
+              <p class="gestion-nav__label">Ir a</p>
+              <ul role="list">
+                {gestiones.map((g) => (
+                  <li>
+                    <a href={`#${slugify(g.nombre)}`} data-gestion-link>
+                      {g.nombre}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+
+            <div class="gestiones__list">
+              {gestiones.map((g) => (
+                <section class="gestion" id={slugify(g.nombre)} aria-labelledby={`t-${slugify(g.nombre)}`} data-gestion>
+                  <header class="gestion__head" data-reveal>
+                    <p class="gestion__periodo">{g.periodo}</p>
+                    <h2 class="h1 gestion__title" id={`t-${slugify(g.nombre)}`}>
+                      {g.nombre}
+                    </h2>
+                    <p class="lead">{g.resumen}</p>
+                  </header>
+
+                  {g.logros.length > 0 ? (
+                    <ol role="list" class="logros" data-reveal-stagger>
+                      {g.logros.map((l, i) => (
+                        <li class="logro">
+                          <span class="logro__n">{String(i + 1).padStart(2, '0')}</span>
+                          <div class="logro__body">
+                            <div class="card__meta">
+                              <span class="badge badge--navy">{l.area}</span>
+                              {l.ejemplo && <span class="badge badge--sample">Ejemplo</span>}
+                            </div>
+                            <h3 class="logro__title">{l.titulo}</h3>
+                            <p class="muted">{l.descripcion}</p>
+                          </div>
+                          {l.indicadores.length > 0 && (
+                            <dl class="logro__kpis">
+                              {l.indicadores.map((k) => (
+                                <div>
+                                  <dd>{k.valor}</dd>
+                                  <dt>{k.etiqueta}</dt>
+                                </div>
+                              ))}
+                            </dl>
+                          )}
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <EmptyState compact icon="star" title="Sin iniciativas cargadas para esta gestión" />
+                  )}
+                </section>
+              ))}
+            </div>
+          </div>
+        )
+      }
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  // Resalta en el índice la gestión visible.
+  const links = [...document.querySelectorAll<HTMLAnchorElement>('[data-gestion-link]')];
+  const io = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((e) => {
+        if (!e.isIntersecting) return;
+        links.forEach((l) => l.toggleAttribute('aria-current', l.hash === `#${e.target.id}`));
+      });
+    },
+    { rootMargin: '-40% 0px -55% 0px' },
+  );
+  document.querySelectorAll('[data-gestion]').forEach((s) => io.observe(s));
+</script>
+
+<style>
+  .logros-stats { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; margin-top: 2rem !important; font-size: var(--fs-sm); color: var(--ink-soft); }
+  .logros-stats strong { font-family: var(--font-serif); font-size: 2rem; font-weight: 600; color: var(--navy-900); margin-right: 0.35rem; }
+
+  .gestiones { display: grid; gap: 2rem; }
+  @media (min-width: 1000px) {
+    .gestiones { grid-template-columns: 200px 1fr; gap: 4rem; align-items: start; }
+    .gestion-nav { position: sticky; top: calc(var(--header-h) + 2rem); }
+  }
+  .gestion-nav__label { font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-600); margin-bottom: 0.75rem; }
+  .gestion-nav ul { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  @media (min-width: 1000px) { .gestion-nav ul { flex-direction: column; gap: 0; border-left: 1px solid var(--line); } }
+  .gestion-nav a { display: block; padding: 0.5rem 1rem; font-size: var(--fs-sm); font-weight: 500; color: var(--ink-soft); border-radius: 999px; border: 1px solid var(--line); transition: color var(--dur-fast), border-color var(--dur-fast); }
+  @media (min-width: 1000px) {
+    .gestion-nav a { border: 0; border-left: 2px solid transparent; border-radius: 0; margin-left: -1px; }
+  }
+  .gestion-nav a:hover { color: var(--navy-900); }
+  .gestion-nav a[aria-current] { color: var(--navy-900); font-weight: 700; border-color: var(--gold-500); }
+
+  .gestion + .gestion { margin-top: var(--space-section); }
+  .gestion__head > * + * { margin-top: 0.75rem; }
+  .gestion__periodo { font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-600); }
+  .gestion__title { font-size: var(--fs-2xl); }
+
+  .logros { margin-top: 2.5rem; border-top: 1px solid var(--line); }
+  .logro { display: grid; grid-template-columns: auto 1fr; gap: 1rem 1.5rem; padding: 2rem 0; border-bottom: 1px solid var(--line); }
+  @media (min-width: 800px) { .logro { grid-template-columns: auto 1fr auto; align-items: center; } }
+  .logro__n { font-family: var(--font-serif); font-style: italic; font-size: 2.6rem; line-height: 1; color: var(--gold-500); transition: transform var(--dur) var(--ease-out); }
+  .logro:hover .logro__n { transform: translateX(4px); }
+  .logro__body > * + * { margin-top: 0.5rem; }
+  .logro__title { font-family: var(--font-serif); font-size: var(--fs-lg); font-weight: 600; }
+  .logro__kpis { grid-column: 2; display: flex; gap: 1rem; }
+  @media (min-width: 800px) { .logro__kpis { grid-column: auto; } }
+  .logro__kpis > div { min-width: 120px; padding: 1rem 1.1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); text-align: center; }
+  .logro__kpis dd { font-family: var(--font-serif); font-size: 2.4rem; font-weight: 600; line-height: 1; color: var(--navy-900); }
+  .logro__kpis dt { margin-top: 0.3rem; font-size: var(--fs-xs); color: var(--ink-soft); }
+  @media (max-width: 500px) { .logro__kpis { flex-wrap: wrap; } .logro__kpis > div { flex: 1; min-width: 100px; } }
+</style>
