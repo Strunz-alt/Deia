@@ -2,32 +2,61 @@
 
 Sitio público del Centro de Estudiantes de la Facultad de Derecho (UCA) con **cuentas de usuario**, **biblioteca de resúmenes protegida** y **panel de administración** para gestionar el contenido sin tocar código.
 
-## Puesta en marcha
+## Ejecutarlo en tu computadora
 
-Requisitos: **Node.js 22.18 o superior**.
+1. Instalá **Node.js 22.18 o superior** desde [nodejs.org](https://nodejs.org) (la versión «LTS» sirve).
+2. Descargá el proyecto: `git clone https://github.com/Strunz-alt/Deia.git` (o *Code → Download ZIP* en GitHub) y abrí una terminal en esa carpeta.
+3. Ejecutá:
 
 ```bash
 npm install
-cp .env.example .env            # opcional: los valores por defecto sirven para desarrollo
-npm run admin -- --email tu@correo.com --nombre "Tu Nombre"   # crea la primera cuenta administradora (pide contraseña)
-npm run db:demo                 # opcional: carga contenido de ejemplo para recorrer el sitio
-npm run dev                     # http://localhost:4321
+npm run admin -- --email tu@correo.com --nombre "Tu Nombre"   # crea tu cuenta administradora (pide contraseña)
+npm run db:demo                                              # opcional: contenido de ejemplo
+npm run dev
 ```
 
-- Panel de administración: **http://localhost:4321/admin** (ingresá con la cuenta creada arriba).
-- La base de datos (`data/ced.db`) y los archivos subidos (`data/uploads/`) se crean solos. Las migraciones se aplican al iniciar.
-- Para quitar el contenido de ejemplo: `npm run db:demo -- --quitar` (sólo borra lo marcado como «Ejemplo ·»).
+4. Abrí **http://localhost:4321** en el navegador. El panel está en **http://localhost:4321/admin**. Para detener el servidor: `Ctrl + C`.
 
-### Producción
+La base de datos (`data/ced.db`) y los archivos subidos (`data/uploads/`) se crean solos. Para quitar el contenido de ejemplo: `npm run db:demo -- --quitar` (sólo borra lo marcado como «Ejemplo ·»).
+
+## Publicarlo en Railway
+
+El proyecto ya incluye `railway.json` (compilación, arranque y control de salud) y `.nvmrc` (versión de Node).
+
+1. Uní el PR a `main` en GitHub (o elegí la rama del PR en el paso 2).
+2. En [railway.com](https://railway.com) ingresá con GitHub → **New Project → Deploy from GitHub repo** → elegí `Strunz-alt/Deia` (autorizá el acceso al repositorio si lo pide).
+3. En el servicio creado:
+   - **Settings → Networking → Generate Domain**: te da una dirección pública del tipo `algo.up.railway.app`.
+   - **Volume**: agregá un volumen al servicio con *mount path* `/data` (ahí se guardan la base y los archivos).
+   - **Variables**:
+
+     | Variable | Valor |
+     |---|---|
+     | `HOST` | `0.0.0.0` |
+     | `DATABASE_URL` | `file:/data/ced.db` |
+     | `UPLOADS_DIR` | `/data/uploads` |
+     | `ADMIN_EMAIL` | el correo de la primera cuenta administradora |
+     | `ADMIN_PASSWORD` | su contraseña (8 caracteres o más) |
+     | `ADMIN_NOMBRE` | su nombre (opcional) |
+
+4. **Deploy** (o **Redeploy** si ya se había publicado antes de generar el dominio: el dominio se lee al compilar).
+5. Abrí la dirección pública, entrá a `/ingresar` con `ADMIN_EMAIL` y `ADMIN_PASSWORD`, y después **borrá la variable `ADMIN_PASSWORD`**. Desde el panel podés dar permisos a otros administradores.
+
+Cada push a la rama elegida vuelve a publicar el sitio automáticamente. Railway es un servicio pago (plan básico de pocos dólares por mes: verificá el precio actual). Hacé copias de seguridad del volumen `/data` (base y archivos).
+
+**Dominio propio (más adelante):** agregalo en *Settings → Networking → Custom Domain*, configurá el DNS que indica Railway, definí `SITE_URL=https://tudominio` y volvé a publicar.
+
+> Detrás del HTTPS de un hosting, Astro sólo confía en el dominio público configurado (`SITE_URL`, `RAILWAY_PUBLIC_DOMAIN` o `ALLOWED_HOSTS`). Sin eso, los formularios se rechazarían con error 403.
+
+### Otro servidor
 
 ```bash
-npm run build      # verificación de tipos + compilación
-npm start          # servidor Node en HOST:PORT (por defecto 0.0.0.0:4321)
+npm install
+npm run build      # verificación de tipos + compilación (con SITE_URL definida)
+npm start          # servidor Node en HOST:PORT
 ```
 
-El servidor necesita **disco persistente** para `data/` (base y archivos). Sirve en cualquier VPS o plataforma con volúmenes (Railway, Render, Fly.io…). Detrás de un proxy con HTTPS, la cookie de sesión se marca `Secure` automáticamente (`X-Forwarded-Proto`). Hacé copias de seguridad periódicas de la carpeta `data/`.
-
-Variables (ver `.env.example`): `DATABASE_URL`, `DATABASE_AUTH_TOKEN` (para Turso/libSQL remoto), `UPLOADS_DIR`, `HOST`, `PORT`.
+Necesita disco persistente para `data/` y un proxy HTTPS delante. Variables en `.env.example`.
 
 ## Usuarios y permisos
 
@@ -38,7 +67,7 @@ Variables (ver `.env.example`): `DATABASE_URL`, `DATABASE_AUTH_TOKEN` (para Turs
 | Administrador | Todo lo anterior + panel `/admin` para crear, editar y eliminar contenido y gestionar usuarios. |
 
 - El **registro público** (`/registro`) crea siempre cuentas de estudiante: el rol no se lee del formulario.
-- La **primera cuenta administradora** se crea desde la consola del servidor con `npm run admin` (sólo lo puede hacer quien tiene acceso al servidor). Luego, un administrador puede otorgar o quitar el rol desde **Panel → Usuarios y permisos**. Nadie puede cambiar su propio rol, y siempre queda al menos un administrador.
+- La **primera cuenta administradora** se crea desde la consola del servidor con `npm run admin`, o en hostings sin consola con las variables `ADMIN_EMAIL`/`ADMIN_PASSWORD` (sólo se aplican mientras no exista ningún administrador). En ambos casos sólo puede hacerlo quien controla el servidor. Luego, un administrador puede otorgar o quitar el rol desde **Panel → Usuarios y permisos**. Nadie puede cambiar su propio rol, y siempre queda al menos un administrador.
 - Otros comandos: `npm run admin -- --listar`, `--email x --password` (cambiar contraseña), `--email x --quitar` (quitar rol).
 - Los permisos se validan **en el servidor**: el middleware protege `/admin` y cada página o endpoint administrativo vuelve a verificar el rol; los archivos de estudio se entregan sólo con sesión iniciada (`/apuntes/archivo/<id>`).
 - El **cargo** de la sección Miembros (presidencia, secretaría…) es independiente de los permisos del sitio.
@@ -93,4 +122,4 @@ Basada en las publicaciones del Centro: rojo del escudo `#AB1717`, bordó profun
 - **Recuperación de contraseña por correo**: requiere un servicio de envío de e-mails (no configurado). Mientras tanto, un administrador genera una contraseña temporal desde el panel.
 - **Almacenamiento en la nube**: los archivos se guardan en disco. Para un hosting sin disco persistente habría que agregar un almacenamiento compatible con S3 (la lógica está centralizada en `src/lib/storage.ts`).
 - El límite de intentos de ingreso vive en memoria: si se escala a varias instancias, conviene moverlo a un almacenamiento compartido.
-- Antes de publicar: definir el dominio en `astro.config.mjs` y quitar el `noindex` de `src/layouts/BaseLayout.astro`.
+- El sitio tiene `noindex` (no aparece en buscadores) mientras se revisa el contenido: quitarlo de `src/layouts/BaseLayout.astro` cuando esté listo.
