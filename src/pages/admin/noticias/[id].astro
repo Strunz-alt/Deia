@@ -1,0 +1,124 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import Icon from '@/components/Icon.astro';
+import ErrorSummary from '@/components/forms/ErrorSummary.astro';
+import Field from '@/components/forms/Field.astro';
+import ImageField from '@/components/forms/ImageField.astro';
+import SelectField from '@/components/forms/SelectField.astro';
+import { CATEGORIAS_NOTICIA } from '@/db/schema';
+import { setFlash } from '@/lib/flash';
+import { paramId, todayISO, type FieldErrors, type FormValues } from '@/lib/forms';
+import { requireAdmin } from '@/lib/guard';
+import { deleteNoticia, getNoticia, saveNoticia } from '@/lib/services/noticias';
+
+const denied = requireAdmin(Astro);
+if (denied) return denied;
+
+const isNew = Astro.params.id === 'nueva';
+const id = isNew ? null : paramId(Astro.params.id);
+if (!isNew && !id) return Astro.redirect('/admin/noticias');
+const noticia = id ? await getNoticia(id) : null;
+if (!isNew && !noticia) {
+  setFlash(Astro.cookies, 'error', 'La noticia no existe o ya fue eliminada.');
+  return Astro.redirect('/admin/noticias');
+}
+
+let errors: FieldErrors = {};
+let values: FormValues = noticia
+  ? { titulo: noticia.titulo, categoria: noticia.categoria, resumen: noticia.resumen, contenido: noticia.contenido, fecha: noticia.fecha }
+  : { fecha: todayISO(), categoria: 'Institucional' };
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  if (form.get('_accion') === 'eliminar' && noticia) {
+    await deleteNoticia(noticia.id);
+    setFlash(Astro.cookies, 'success', `Se eliminó «${noticia.titulo}».`);
+    return Astro.redirect('/admin/noticias', 303);
+  }
+  const result = await saveNoticia(form, noticia);
+  if (result.ok) {
+    setFlash(Astro.cookies, 'success', result.message);
+    return Astro.redirect(`/admin/noticias/${result.id}`, 303);
+  }
+  errors = result.errors;
+  values = result.values;
+  Astro.response.status = 400;
+}
+
+const publicada = noticia?.estado === 'publicada';
+---
+
+<AdminLayout title={noticia ? 'Editar noticia' : 'Nueva noticia'} section="noticias" back={{ href: '/admin/noticias', label: 'Noticias' }}>
+  {
+    noticia && (
+      <a href={`/noticias/${noticia.slug}`} target="_blank" rel="noopener" class="btn btn--sm btn--outline" slot="actions">
+        <Icon name="eye" /> {publicada ? 'Ver en el sitio' : 'Vista previa'}
+      </a>
+    )
+  }
+  <form method="post" enctype="multipart/form-data" novalidate>
+    <div class="form-layout">
+      <div class="form-layout__main">
+        <section class="panel">
+          <ErrorSummary errors={errors} />
+          <div class="form-grid form-grid--2">
+            <Field name="titulo" label="Título" value={values.titulo} error={errors.titulo} required maxlength={160} class="span-all" />
+            <SelectField name="categoria" label="Categoría" required value={values.categoria} error={errors.categoria} options={CATEGORIAS_NOTICIA.map((c) => ({ value: c, label: c }))} />
+            <Field name="fecha" label="Fecha de publicación" type="date" value={values.fecha} error={errors.fecha} required />
+            <Field name="resumen" label="Resumen" type="textarea" rows={3} value={values.resumen} error={errors.resumen} required maxlength={300} hint="Una o dos oraciones. Se muestra en los listados y como bajada." class="span-all" />
+            <Field
+              name="contenido"
+              label="Contenido"
+              type="textarea"
+              rows={16}
+              value={values.contenido}
+              error={errors.contenido}
+              required
+              maxlength={20000}
+              hint="Texto de la noticia. Dejá una línea en blanco entre párrafos."
+              class="span-all"
+            />
+          </div>
+        </section>
+      </div>
+      <aside class="form-layout__side">
+        <section class="panel">
+          <h2 class="panel__title"><Icon name="info" size={18} /> Estado</h2>
+          <p class="estado">
+            {noticia ? (publicada ? <span class="badge badge--live">Publicada</span> : <span class="badge badge--draft">Borrador</span>) : <span class="badge">Sin guardar</span>}
+          </p>
+          <p class="field__hint" style="margin-top:0.6rem">
+            {publicada ? 'Los cambios se verán en el sitio apenas guardes.' : 'Los borradores no se muestran en el sitio.'}
+          </p>
+        </section>
+        <section class="panel">
+          <ImageField name="portada" label="Imagen de portada" current={noticia?.portada} error={errors.portada} ratio="16 / 9" hint="Horizontal (16:9), JPG, PNG o WebP de hasta 5 MB." />
+        </section>
+      </aside>
+    </div>
+    <div class="form-actions">
+      {
+        publicada ? (
+          <>
+            <button type="submit" name="estado" value="publicada" class="btn" data-loading-text="Guardando…"><Icon name="check" /> Guardar cambios</button>
+            <button type="submit" name="estado" value="borrador" class="btn btn--outline" data-loading-text="Guardando…"><Icon name="eye-off" /> Pasar a borrador</button>
+          </>
+        ) : (
+          <>
+            {/* "Guardar borrador" va primero en el HTML: es la acción por defecto al presionar Enter. */}
+            <button type="submit" name="estado" value="borrador" class="btn btn--outline" data-loading-text="Guardando…"><Icon name="edit" /> Guardar borrador</button>
+            <button type="submit" name="estado" value="publicada" class="btn" style="order:-1" data-loading-text="Publicando…"><Icon name="upload" /> Publicar</button>
+          </>
+        )
+      }
+      <span class="form-actions__spacer"></span>
+      {
+        noticia && (
+          <button type="submit" name="_accion" value="eliminar" class="btn btn--danger btn--sm" data-confirm-title="¿Eliminar la noticia?" data-confirm={`Se borrarán «${noticia.titulo}» y su imagen de portada.`}>
+            <Icon name="trash" /> Eliminar
+          </button>
+        )
+      }
+    </div>
+  </form>
+</AdminLayout>

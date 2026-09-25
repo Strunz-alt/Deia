@@ -5,58 +5,51 @@ import FilterChips from '@/components/FilterChips.astro';
 import Icon from '@/components/Icon.astro';
 import NoticiaCard from '@/components/NoticiaCard.astro';
 import PageHero from '@/components/PageHero.astro';
-import SampleNotice from '@/components/SampleNotice.astro';
-import { categoriasNoticias, noticias } from '@/data/noticias';
-import { porFechaDesc } from '@/lib/format';
+import { CATEGORIAS_NOTICIA } from '@/db/schema';
+import { listNoticiasPublicadas } from '@/lib/services/noticias';
 
-const ordenadas = [...noticias].sort(porFechaDesc);
-const usadas = categoriasNoticias.filter((c) => noticias.some((n) => n.categoria === c));
+const noticias = await listNoticiasPublicadas();
+const usadas = CATEGORIAS_NOTICIA.filter((c) => noticias.some((n) => n.categoria === c));
 ---
 
 <BaseLayout title="Noticias" description="Noticias y novedades del Centro de Estudiantes de Derecho de la UCA.">
-  <PageHero
-    eyebrow="Novedades"
-    title="Noticias"
-    lead="Lo último del Centro: anuncios, convocatorias, crónicas de actividades y novedades de la Facultad."
-    crumbs={[]}
-    numeral="VII"
-  />
+  <PageHero eyebrow="Novedades" title="Noticias" lead="Lo último del Centro: anuncios, convocatorias, crónicas de actividades y novedades de la Facultad." />
 
   <section class="section section--tight">
     <div class="container" data-filter-root>
-      <SampleNotice source="src/data/noticias.ts" />
-
-      <div class="toolbar" data-reveal>
-        <div class="field">
-          <label class="field__label" for="noticias-q">Buscar</label>
-          <div class="input-icon">
-            <Icon name="search" size={18} />
-            <input id="noticias-q" class="input" type="search" placeholder="Buscar noticias" data-filter-search />
-          </div>
-        </div>
-        <div class="toolbar__group" style="grid-column: span 2">
-          <span class="field__label">Categoría</span>
-          <FilterChips filterKey="categoria" label="Filtrar por categoría" options={usadas.map((c) => ({ value: c, label: c }))} />
-        </div>
-      </div>
-
-      <div class="results-bar">
-        <p class="results-bar__count" data-filter-count data-one="publicación" data-many="publicaciones" aria-live="polite"></p>
-        <button type="button" class="reset" data-filter-reset>Limpiar filtros</button>
-      </div>
-
       {
-        ordenadas.length > 0 ? (
-          <div class="grid grid--3" data-reveal-stagger>
-            {ordenadas.map((n) => (
-              <NoticiaCard noticia={n} headingLevel="h2" />
-            ))}
-          </div>
+        noticias.length === 0 ? (
+          <EmptyState icon="news" title="Todavía no hay publicaciones" text="Las noticias del Centro aparecerán acá." />
         ) : (
-          <EmptyState icon="news" title="Todavía no hay publicaciones" text="Las noticias del Centro aparecerán aquí." />
+          <>
+            <div class="toolbar" data-reveal>
+              <div class="field">
+                <label class="field__label" for="noticias-q">Buscar</label>
+                <div class="input-icon">
+                  <Icon name="search" size={18} />
+                  <input id="noticias-q" class="input" type="search" placeholder="Buscar noticias" data-filter-search />
+                </div>
+              </div>
+              {usadas.length > 1 && (
+                <div class="toolbar__group" style="grid-column: span 2">
+                  <span class="field__label">Categoría</span>
+                  <FilterChips filterKey="categoria" label="Filtrar por categoría" options={usadas.map((c) => ({ value: c, label: c }))} />
+                </div>
+              )}
+            </div>
+            <div class="results-bar">
+              <p class="results-bar__count" data-filter-count data-one="publicación" data-many="publicaciones" aria-live="polite"></p>
+              <button type="button" class="reset" data-filter-reset>Limpiar filtros</button>
+            </div>
+            <div class="grid grid--3" data-reveal-stagger>
+              {noticias.map((n) => (
+                <NoticiaCard noticia={n} headingLevel="h2" />
+              ))}
+            </div>
+            <EmptyState filterEmpty icon="search" title="No hay publicaciones con esos filtros" text="Probá con otra categoría o término de búsqueda." />
+          </>
         )
       }
-      <EmptyState filterEmpty icon="search" title="No hay publicaciones con esos filtros" text="Probá con otra categoría o término de búsqueda." />
     </div>
   </section>
 </BaseLayout>

@@ -1,0 +1,120 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import AdminEmpty from '@/components/admin/AdminEmpty.astro';
+import RowAction from '@/components/admin/RowAction.astro';
+import Thumb from '@/components/admin/Thumb.astro';
+import Icon from '@/components/Icon.astro';
+import { setFlash } from '@/lib/flash';
+import { formatFecha } from '@/lib/format';
+import { paramId } from '@/lib/forms';
+import { requireAdmin } from '@/lib/guard';
+import { deleteNoticia, getNoticia, listNoticiasAdmin, setEstadoNoticia } from '@/lib/services/noticias';
+
+const denied = requireAdmin(Astro);
+if (denied) return denied;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const accion = form.get('_accion');
+  const id = paramId(String(form.get('id') ?? ''));
+  const n = id ? await getNoticia(id) : null;
+  if (n && accion === 'publicar') {
+    await setEstadoNoticia(n.id, 'publicada');
+    setFlash(Astro.cookies, 'success', `«${n.titulo}» ya está publicada en el sitio.`);
+  } else if (n && accion === 'despublicar') {
+    await setEstadoNoticia(n.id, 'borrador');
+    setFlash(Astro.cookies, 'success', `«${n.titulo}» pasó a borrador y ya no se ve en el sitio.`);
+  } else if (n && accion === 'eliminar') {
+    await deleteNoticia(n.id);
+    setFlash(Astro.cookies, 'success', `Se eliminó «${n.titulo}».`);
+  }
+  return Astro.redirect(`/admin/noticias${Astro.url.search}`, 303);
+}
+
+const estado = Astro.url.searchParams.get('estado') ?? '';
+const q = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 100);
+const noticias = await listNoticiasAdmin(q, estado);
+const tabs = [
+  { value: '', label: 'Todas' },
+  { value: 'publicada', label: 'Publicadas' },
+  { value: 'borrador', label: 'Borradores' },
+];
+---
+
+<AdminLayout title="Noticias y novedades" section="noticias" description="Guardá borradores y publicalos cuando estén listos. Sólo las noticias publicadas se ven en el sitio.">
+  <a href="/admin/noticias/nueva" class="btn btn--sm" slot="actions"><Icon name="plus" /> Nueva noticia</a>
+
+  <form method="get" class="list-toolbar" role="search">
+    <div class="field field--search">
+      <label class="field__label" for="q">Buscar</label>
+      <div class="input-icon">
+        <Icon name="search" size={18} />
+        <input id="q" name="q" type="search" class="input" value={q} placeholder="Título o resumen" />
+      </div>
+    </div>
+    {estado && <input type="hidden" name="estado" value={estado} />}
+    <button type="submit" class="btn btn--sm btn--dark">Buscar</button>
+    <nav class="pill-select" aria-label="Filtrar por estado">
+      {tabs.map((t) => (
+        <a href={`/admin/noticias?${new URLSearchParams({ ...(q ? { q } : {}), ...(t.value ? { estado: t.value } : {}) })}`} aria-current={estado === t.value ? 'page' : undefined}>{t.label}</a>
+      ))}
+    </nav>
+  </form>
+
+  {
+    noticias.length === 0 ? (
+      <AdminEmpty
+        icon="news"
+        title={q || estado ? 'No hay noticias con esos filtros' : 'Todavía no hay noticias'}
+        text={q || estado ? 'Probá con otra búsqueda.' : 'Escribí la primera novedad del Centro.'}
+        action={q || estado ? undefined : { href: '/admin/noticias/nueva', label: 'Escribir noticia' }}
+      />
+    ) : (
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th scope="col">Noticia</th>
+              <th scope="col">Fecha</th>
+              <th scope="col">Estado</th>
+              <th scope="col"><span class="visually-hidden">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {noticias.map((n) => (
+              <tr>
+                <td>
+                  <a href={`/admin/noticias/${n.id}`} class="cell-main">
+                    <Thumb src={n.portada} icon="news" />
+                    <span>
+                      <strong>{n.titulo}</strong>
+                      <span class="cell-sub">{n.categoria}</span>
+                    </span>
+                  </a>
+                </td>
+                <td data-label="Fecha">{formatFecha(n.fecha, { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                <td data-label="Estado">
+                  {n.estado === 'publicada' ? <span class="badge badge--live">Publicada</span> : <span class="badge badge--draft">Borrador</span>}
+                </td>
+                <td>
+                  <div class="row-actions">
+                    <a href={`/noticias/${n.slug}`} target="_blank" rel="noopener" class="icon-btn" title={n.estado === 'publicada' ? 'Ver en el sitio' : 'Vista previa'} aria-label={`Ver ${n.titulo}`}>
+                      <Icon name="eye" size={17} />
+                    </a>
+                    {n.estado === 'publicada' ? (
+                      <RowAction action="despublicar" id={n.id} icon="eye-off" label={`Despublicar ${n.titulo}`} confirmTitle="¿Despublicar la noticia?" confirm="Dejará de verse en el sitio y quedará como borrador." confirmLabel="Despublicar" />
+                    ) : (
+                      <RowAction action="publicar" id={n.id} icon="upload" label={`Publicar ${n.titulo}`} />
+                    )}
+                    <a href={`/admin/noticias/${n.id}`} class="icon-btn" title="Editar" aria-label={`Editar ${n.titulo}`}><Icon name="edit" size={17} /></a>
+                    <RowAction action="eliminar" id={n.id} icon="trash" danger label={`Eliminar ${n.titulo}`} confirmTitle="¿Eliminar la noticia?" confirm={`Se borrarán «${n.titulo}» y su imagen de portada.`} />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+</AdminLayout>

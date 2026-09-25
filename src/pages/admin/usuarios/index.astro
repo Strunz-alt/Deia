@@ -1,0 +1,161 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import AdminEmpty from '@/components/admin/AdminEmpty.astro';
+import RowAction from '@/components/admin/RowAction.astro';
+import Icon from '@/components/Icon.astro';
+import { setFlash } from '@/lib/flash';
+import { formatFecha } from '@/lib/format';
+import { paramId } from '@/lib/forms';
+import { requireAdmin } from '@/lib/guard';
+import { listUsuarios, resetPassword, setRol } from '@/lib/services/usuarios';
+
+const denied = requireAdmin(Astro);
+if (denied) return denied;
+const me = Astro.locals.user!;
+
+let tempPassword: { nombre: string; email: string; temp: string } | null = null;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const accion = form.get('_accion');
+  const id = paramId(String(form.get('id') ?? ''));
+  if (id && (accion === 'hacer-admin' || accion === 'quitar-admin')) {
+    const result = await setRol(me.id, id, accion === 'hacer-admin' ? 'admin' : 'estudiante');
+    setFlash(
+      Astro.cookies,
+      result.ok ? 'success' : 'error',
+      result.ok
+        ? accion === 'hacer-admin'
+          ? `${result.nombre} ahora es administrador/a.`
+          : `${result.nombre} volvió a tener una cuenta de estudiante.`
+        : result.error,
+    );
+    return Astro.redirect(`/admin/usuarios${Astro.url.search}`, 303);
+  }
+  if (id && accion === 'restablecer') {
+    const result = await resetPassword(me.id, id);
+    if (!result.ok) {
+      setFlash(Astro.cookies, 'error', result.error);
+      return Astro.redirect('/admin/usuarios', 303);
+    }
+    // La contraseña temporal se muestra una sola vez, en esta respuesta.
+    tempPassword = result;
+  }
+}
+
+const q = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 100);
+const usuarios = await listUsuarios(q);
+const fecha = (d: Date | null) => (d ? formatFecha(d.toISOString().slice(0, 10), { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+---
+
+<AdminLayout
+  title="Usuarios y permisos"
+  section="usuarios"
+  description="Las cuentas creadas desde el registro público son siempre de estudiante. Sólo un administrador puede otorgar o quitar el rol de administrador."
+>
+  {
+    tempPassword && (
+      <div class="notice notice--success temp" role="alert">
+        <Icon name="lock" size={20} />
+        <div>
+          <p>
+            Contraseña temporal para <strong>{tempPassword.nombre}</strong> ({tempPassword.email}). Compartila por un medio privado: no se volverá a
+            mostrar.
+          </p>
+          <p class="temp__row">
+            <code id="temp-pass">{tempPassword.temp}</code>
+            <button type="button" class="btn btn--sm btn--outline" data-copy="temp-pass">Copiar</button>
+          </p>
+          <p class="field__hint">Sus sesiones abiertas se cerraron. Puede ingresar con esta contraseña.</p>
+        </div>
+      </div>
+    )
+  }
+
+  <form method="get" class="list-toolbar" role="search">
+    <div class="field field--search">
+      <label class="field__label" for="q">Buscar usuario</label>
+      <div class="input-icon">
+        <Icon name="search" size={18} />
+        <input id="q" name="q" type="search" class="input" value={q} placeholder="Nombre o correo" />
+      </div>
+    </div>
+    <button type="submit" class="btn btn--sm btn--dark">Buscar</button>
+  </form>
+
+  {
+    usuarios.length === 0 ? (
+      <AdminEmpty icon="users" title="No hay usuarios con esa búsqueda" />
+    ) : (
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th scope="col">Usuario</th>
+              <th scope="col">Rol</th>
+              <th scope="col">Alta</th>
+              <th scope="col">Último ingreso</th>
+              <th scope="col"><span class="visually-hidden">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {usuarios.map((u) => (
+              <tr>
+                <td>
+                  <span class="cell-main">
+                    <span class:list={['avatar', { 'avatar--admin': u.rol === 'admin' }]} aria-hidden="true">{u.nombre.charAt(0).toUpperCase()}</span>
+                    <span>
+                      <strong>{u.nombre}{u.id === me.id && ' (vos)'}</strong>
+                      <span class="cell-sub">{u.email}</span>
+                    </span>
+                  </span>
+                </td>
+                <td data-label="Rol">{u.rol === 'admin' ? <span class="badge badge--red">Administrador</span> : <span class="badge">Estudiante</span>}</td>
+                <td data-label="Alta">{fecha(u.creadoEn)}</td>
+                <td data-label="Último ingreso">{fecha(u.ultimoIngreso)}</td>
+                <td>
+                  {u.id !== me.id && (
+                    <div class="row-actions">
+                      {u.rol === 'admin' ? (
+                        <RowAction action="quitar-admin" id={u.id} icon="shield" label={`Quitar permisos de administrador a ${u.nombre}`} confirmTitle="¿Quitar el rol de administrador?" confirm={`${u.nombre} dejará de acceder al panel y volverá a ser estudiante.`} confirmLabel="Quitar permisos" />
+                      ) : (
+                        <RowAction action="hacer-admin" id={u.id} icon="shield" label={`Hacer administrador a ${u.nombre}`} confirmTitle="¿Otorgar permisos de administrador?" confirm={`${u.nombre} podrá crear, editar y eliminar todo el contenido del sitio y gestionar usuarios.`} confirmLabel="Hacer administrador" />
+                      )}
+                      <RowAction action="restablecer" id={u.id} icon="lock" label={`Generar contraseña temporal para ${u.nombre}`} confirmTitle="¿Restablecer la contraseña?" confirm={`Se generará una contraseña temporal para ${u.nombre} y se cerrarán sus sesiones abiertas.`} confirmLabel="Generar contraseña" />
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+</AdminLayout>
+
+<style>
+  .avatar { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--sand); font-weight: 800; }
+  .avatar--admin { background: var(--red-600); color: var(--white); }
+  .temp { margin-bottom: 1.25rem; }
+  .temp__row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin: 0.6rem 0; }
+  .temp code { padding: 0.4rem 0.75rem; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.06em; background: var(--white); border-radius: 6px; border: 1px solid #cfe2d6; user-select: all; }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const el = document.getElementById(btn.dataset.copy!);
+      try {
+        await navigator.clipboard.writeText(el?.textContent ?? '');
+        btn.textContent = 'Copiada';
+      } catch {
+        const range = document.createRange();
+        if (el) range.selectNodeContents(el);
+        getSelection()?.removeAllRanges();
+        getSelection()?.addRange(range);
+        btn.textContent = 'Seleccionada: copiala con Ctrl+C';
+      }
+    });
+  });
+</script>

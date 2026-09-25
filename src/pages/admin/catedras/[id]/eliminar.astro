@@ -1,0 +1,107 @@
+---
+/** Eliminación de una cátedra, resolviendo antes sus materiales. */
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import Icon from '@/components/Icon.astro';
+import { eq } from 'drizzle-orm';
+import { materiales } from '@/db/schema';
+import { setFlash } from '@/lib/flash';
+import { paramId } from '@/lib/forms';
+import { requireAdmin } from '@/lib/guard';
+import { countWhere } from '@/lib/services/common';
+import { deleteCatedra, getCatedra, getMateria, listCatedras } from '@/lib/services/materias';
+
+const denied = requireAdmin(Astro);
+if (denied) return denied;
+
+const id = paramId(Astro.params.id);
+const catedra = id ? await getCatedra(id) : null;
+if (!catedra) {
+  setFlash(Astro.cookies, 'error', 'La cátedra no existe o ya fue eliminada.');
+  return Astro.redirect('/admin/materias');
+}
+const materia = (await getMateria(catedra.materiaId))!;
+const nMateriales = await countWhere(materiales, eq(materiales.catedraId, catedra.id));
+
+let error = '';
+let modo = nMateriales === 0 ? 'general' : 'mover';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  modo = String(form.get('modo') ?? 'general');
+  const destino = paramId(String(form.get('destino') ?? ''));
+  if (modo === 'eliminar' && nMateriales > 0 && form.get('confirmo') !== 'on') {
+    error = 'Marcá la casilla de confirmación para eliminar también los materiales.';
+  } else if (modo === 'mover' || modo === 'general' || modo === 'eliminar') {
+    const result = await deleteCatedra(catedra.id, modo, destino);
+    if (result.ok) {
+      setFlash(Astro.cookies, 'success', `Se eliminó la cátedra «${result.nombre}».`);
+      return Astro.redirect(`/admin/materias/${materia.id}#catedras`, 303);
+    }
+    error = result.error;
+  }
+  Astro.response.status = 400;
+}
+
+const otras = (await listCatedras(materia.id)).filter((c) => c.id !== catedra.id);
+---
+
+<AdminLayout
+  title={`Eliminar «${catedra.nombre}»`}
+  section="materias"
+  back={{ href: `/admin/materias/${materia.id}#catedras`, label: materia.nombre }}
+  description={nMateriales > 0
+    ? `Esta cátedra tiene ${nMateriales} ${nMateriales === 1 ? 'material asociado' : 'materiales asociados'}. Elegí qué hacer con ${nMateriales === 1 ? 'él' : 'ellos'}.`
+    : 'La cátedra no tiene materiales asociados.'}
+>
+  <form method="post" class="panel">
+    {error && <p class="notice notice--error" role="alert" style="margin-bottom:1rem"><Icon name="alert" size={18} /> {error}</p>}
+    {
+      nMateriales > 0 ? (
+        <div class="radio-cards">
+          <div class="radio-card">
+            <input type="radio" name="modo" id="modo-mover" value="mover" checked={modo === 'mover'} disabled={otras.length === 0} />
+            <div>
+              <label for="modo-mover"><strong>Moverlos a otra cátedra de {materia.nombre}</strong></label>
+              {otras.length > 0 ? (
+                <select name="destino" class="select" aria-label="Cátedra de destino">
+                  <option value="">Elegí la cátedra</option>
+                  {otras.map((c) => <option value={c.id}>{c.nombre}</option>)}
+                </select>
+              ) : (
+                <span>No hay otras cátedras en esta materia.</span>
+              )}
+            </div>
+          </div>
+          <div class="radio-card">
+            <input type="radio" name="modo" id="modo-general" value="general" checked={modo === 'general' || (modo === 'mover' && otras.length === 0)} />
+            <div>
+              <label for="modo-general"><strong>Dejarlos como material general de la materia</strong></label>
+              <span>Siguen disponibles en la biblioteca, sin cátedra asignada.</span>
+            </div>
+          </div>
+          <div class="radio-card">
+            <input type="radio" name="modo" id="modo-eliminar" value="eliminar" checked={modo === 'eliminar'} />
+            <div>
+              <label for="modo-eliminar"><strong>Eliminar también los materiales</strong></label>
+              <span>Se borran los registros y los archivos. No se puede deshacer.</span>
+              <label class="confirm-check">
+                <input type="checkbox" name="confirmo" /> Entiendo que se eliminarán {nMateriales} {nMateriales === 1 ? 'archivo' : 'archivos'}.
+              </label>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <input type="hidden" name="modo" value="general" />
+      )
+    }
+    <div class="form-actions">
+      <button type="submit" class="btn" data-loading-text="Procesando…"><Icon name="trash" /> Eliminar cátedra</button>
+      <a href={`/admin/materias/${materia.id}#catedras`} class="btn btn--outline">Cancelar</a>
+    </div>
+  </form>
+</AdminLayout>
+
+<style>
+  .confirm-check { display: flex; gap: 0.5rem; align-items: flex-start; margin-top: 0.75rem; font-size: var(--fs-sm); font-weight: 600; color: var(--red-700); }
+  .confirm-check input { accent-color: var(--red-600); margin-top: 3px; }
+</style>

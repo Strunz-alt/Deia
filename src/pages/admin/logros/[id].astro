@@ -1,0 +1,96 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import Icon from '@/components/Icon.astro';
+import CheckboxField from '@/components/forms/CheckboxField.astro';
+import ErrorSummary from '@/components/forms/ErrorSummary.astro';
+import Field from '@/components/forms/Field.astro';
+import ImagesField from '@/components/forms/ImagesField.astro';
+import { setFlash } from '@/lib/flash';
+import { paramId, todayISO, type FieldErrors, type FormValues } from '@/lib/forms';
+import { requireAdmin } from '@/lib/guard';
+import { deleteLogro, getLogro, MAX_IMAGENES_LOGRO, saveLogro } from '@/lib/services/logros';
+
+const denied = requireAdmin(Astro);
+if (denied) return denied;
+
+const isNew = Astro.params.id === 'nuevo';
+const id = isNew ? null : paramId(Astro.params.id);
+if (!isNew && !id) return Astro.redirect('/admin/logros');
+const logro = id ? await getLogro(id) : null;
+if (!isNew && !logro) {
+  setFlash(Astro.cookies, 'error', 'El logro no existe o ya fue eliminado.');
+  return Astro.redirect('/admin/logros');
+}
+
+let errors: FieldErrors = {};
+let values: FormValues = logro
+  ? { titulo: logro.titulo, descripcion: logro.descripcion, fecha: logro.fecha, area: logro.area ?? '', destacado: logro.destacado ? 'on' : '' }
+  : { fecha: todayISO() };
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  if (form.get('_accion') === 'eliminar' && logro) {
+    await deleteLogro(logro.id);
+    setFlash(Astro.cookies, 'success', `Se eliminó «${logro.titulo}».`);
+    return Astro.redirect('/admin/logros', 303);
+  }
+  const result = await saveLogro(form, logro);
+  if (result.ok) {
+    setFlash(Astro.cookies, 'success', result.message);
+    return Astro.redirect(`/admin/logros/${result.id}`, 303);
+  }
+  errors = result.errors;
+  values = result.values;
+  Astro.response.status = 400;
+}
+---
+
+<AdminLayout title={logro ? 'Editar logro' : 'Nuevo logro'} section="logros" back={{ href: '/admin/logros', label: 'Logros' }}>
+  <form method="post" enctype="multipart/form-data" novalidate>
+    <div class="form-layout">
+      <div class="form-layout__main">
+        <section class="panel">
+          <ErrorSummary errors={errors} />
+          <div class="form-grid form-grid--2">
+            <Field name="titulo" label="Título" value={values.titulo} error={errors.titulo} required maxlength={160} class="span-all" />
+            <Field name="fecha" label="Fecha" type="date" value={values.fecha} error={errors.fecha} required hint="Define el año en el que se agrupa." />
+            <Field name="area" label="Área" value={values.area} error={errors.area} maxlength={80} placeholder="Ej.: Académica, Acción Social" />
+            <Field
+              name="descripcion"
+              label="Descripción e impacto"
+              type="textarea"
+              rows={7}
+              value={values.descripcion}
+              error={errors.descripcion}
+              required
+              maxlength={3000}
+              hint="Contá qué se hizo y qué resultado tuvo (personas alcanzadas, cifras, etc.). Separá párrafos con una línea en blanco."
+              class="span-all"
+            />
+          </div>
+        </section>
+        <section class="panel">
+          <ImagesField name="imagenes" label="Imágenes" existing={logro?.imagenes} max={MAX_IMAGENES_LOGRO} error={errors.imagenes} />
+        </section>
+      </div>
+      <aside class="form-layout__side">
+        <section class="panel">
+          <h2 class="panel__title"><Icon name="star" size={18} /> Presentación</h2>
+          <CheckboxField name="destacado" label="Destacar este logro" checked={values.destacado === 'on'} hint="Aparece en la página de inicio y al principio de la sección Logros." />
+        </section>
+      </aside>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn" data-loading-text="Guardando…"><Icon name="check" /> {logro ? 'Guardar cambios' : 'Crear logro'}</button>
+      <a href="/admin/logros" class="btn btn--outline">Cancelar</a>
+      <span class="form-actions__spacer"></span>
+      {
+        logro && (
+          <button type="submit" name="_accion" value="eliminar" class="btn btn--danger btn--sm" data-confirm-title="¿Eliminar este logro?" data-confirm={`Se borrarán «${logro.titulo}» y sus imágenes.`}>
+            <Icon name="trash" /> Eliminar
+          </button>
+        )
+      }
+    </div>
+  </form>
+</AdminLayout>

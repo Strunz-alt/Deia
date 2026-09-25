@@ -1,58 +1,61 @@
 ---
 /**
- * Marcador de imagen pendiente. Se usa en lugar de fotos que todavía no se
- * incorporaron. Si recibe `image`, muestra la imagen real.
+ * Imagen de contenido. Si todavía no hay imagen cargada, muestra un marcador
+ * con el escudo del Centro sobre la trama roja de la identidad.
  */
 import Icon, { type IconName } from './Icon.astro';
-import type { Imagen } from '@/data/types';
+import { mediaUrl } from '@/lib/storage';
 
 interface Props {
-  image?: Imagen | null;
+  /** Clave de archivo subida desde el panel. */
+  src?: string | null;
+  alt?: string;
   label?: string;
   icon?: IconName;
   ratio?: string;
-  tone?: 'light' | 'dark' | 'gold';
+  tone?: 'light' | 'red' | 'dark';
+  eager?: boolean;
   class?: string;
 }
 
-const { image, label = 'Imagen pendiente', icon = 'image', ratio = '16 / 10', tone = 'light', class: className } = Astro.props;
+const { src, alt = '', label, icon, ratio = '16 / 10', tone = 'light', eager = false, class: className } = Astro.props;
+const url = mediaUrl(src);
 ---
 
 {
-  image ? (
-    <img src={image.src} alt={image.alt} class:list={['ph-img', className]} style={`aspect-ratio:${ratio}`} loading="lazy" />
+  url ? (
+    <img src={url} alt={alt} class:list={['ph-img', className]} style={`aspect-ratio:${ratio}`} loading={eager ? 'eager' : 'lazy'} decoding="async" />
   ) : (
-    <div class:list={['ph', `ph--${tone}`, className]} style={`aspect-ratio:${ratio}`} role="img" aria-label={label}>
+    <div class:list={['ph', `ph--${tone}`, className]} style={`aspect-ratio:${ratio}`} role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : 'true'}>
       <span class="ph__inner">
-        <Icon name={icon} size={28} />
-        <span class="ph__label">{label}</span>
+        {icon ? <Icon name={icon} size={30} /> : <img src="/brand/logo-ced-192.png" alt="" width="64" height="64" class="ph__seal" />}
       </span>
     </div>
   )
 }
 
 <style>
-  .ph-img { width: 100%; object-fit: cover; }
+  .ph-img { width: 100%; object-fit: cover; background: var(--sand); }
   .ph {
     position: relative;
     display: grid;
     place-items: center;
     width: 100%;
     overflow: hidden;
-    color: var(--ink-faint);
-    background-color: var(--sand);
-    background-image: repeating-linear-gradient(135deg, transparent 0 14px, rgb(14 27 51 / 0.035) 14px 15px);
+    color: var(--red-600);
+    background-color: var(--red-50);
+    background-image: repeating-linear-gradient(-60deg, transparent 0 18px, rgb(171 23 23 / 0.06) 18px 19px);
+  }
+  .ph--red {
+    color: var(--white);
+    background-color: var(--red-600);
+    background-image: repeating-linear-gradient(-60deg, transparent 0 18px, rgb(0 0 0 / 0.08) 18px 19px);
   }
   .ph--dark {
-    color: rgb(255 255 255 / 0.55);
-    background-color: var(--navy-800);
-    background-image: repeating-linear-gradient(135deg, transparent 0 14px, rgb(255 255 255 / 0.04) 14px 15px);
+    color: rgb(255 255 255 / 0.6);
+    background-color: var(--red-900);
+    background-image: repeating-linear-gradient(-60deg, transparent 0 18px, rgb(255 255 255 / 0.04) 18px 19px);
   }
-  .ph--gold {
-    color: #6b5530;
-    background-color: var(--gold-200);
-    background-image: repeating-linear-gradient(135deg, transparent 0 14px, rgb(140 107 54 / 0.08) 14px 15px);
-  }
-  .ph__inner { display: flex; flex-direction: column; align-items: center; gap: 0.45rem; }
-  .ph__label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
+  .ph__seal { width: 64px; height: 64px; opacity: 0.85; border-radius: 50%; }
+  .ph--light .ph__seal { opacity: 0.55; }
 </style>

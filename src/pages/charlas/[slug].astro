@@ -5,80 +5,68 @@ import CharlaCard from '@/components/CharlaCard.astro';
 import DateStamp from '@/components/DateStamp.astro';
 import Icon from '@/components/Icon.astro';
 import PageHero from '@/components/PageHero.astro';
-import SampleNotice from '@/components/SampleNotice.astro';
-import { charlas } from '@/data/charlas';
-import type { Charla } from '@/data/types';
-import { estadoEvento, formatFecha, porFechaAsc } from '@/lib/format';
+import Placeholder from '@/components/Placeholder.astro';
+import { formatFecha } from '@/lib/format';
+import { estadoCharla, getCharlaBySlug, listProximasCharlas } from '@/lib/services/charlas';
+import { parrafos } from '@/lib/services/noticias';
 
-export function getStaticPaths() {
-  return charlas.map((charla) => ({ params: { slug: charla.slug }, props: { charla } }));
-}
+const charla = await getCharlaBySlug(Astro.params.slug ?? '');
+if (!charla) return Astro.rewrite('/404');
 
-interface Props {
-  charla: Charla;
-}
-
-const { charla } = Astro.props;
-const estado = estadoEvento(charla.fecha);
-const otras = charlas
-  .filter((c) => c.slug !== charla.slug && estadoEvento(c.fecha) === 'proxima')
-  .sort(porFechaAsc)
-  .slice(0, 3);
+const estado = estadoCharla(charla.fecha);
+const otras = (await listProximasCharlas(4)).filter((c) => c.id !== charla.id).slice(0, 3);
+const isAdmin = Astro.locals.user?.rol === 'admin';
 ---
 
-<BaseLayout title={charla.titulo} description={charla.resumen}>
+<BaseLayout title={charla.titulo} description={charla.descripcion.slice(0, 160)}>
   <PageHero
-    eyebrow={`${charla.tipo} · ${charla.tematica}`}
+    eyebrow={`${charla.tipo}${charla.tematica ? ` · ${charla.tematica}` : ''}`}
     title={charla.titulo}
-    lead={charla.resumen}
     crumbs={[{ label: 'Charlas', href: '/charlas' }]}
     variant="dark"
   >
     <div class="hero-badges">
       {estado === 'proxima' ? <span class="badge badge--live">Próxima</span> : <span class="badge">Realizada</span>}
-      <span class="badge badge--navy">{charla.modalidad}</span>
-      {charla.ejemplo && <span class="badge badge--sample">Ejemplo</span>}
+      <span class="badge badge--red">{charla.modalidad}</span>
+      {isAdmin && <a href={`/admin/charlas/${charla.id}`} class="badge badge--soft"><Icon name="edit" size={12} /> Editar</a>}
     </div>
   </PageHero>
 
   <section class="section section--tight">
     <div class="container detail">
       <div class="detail__main">
-        {charla.ejemplo && <SampleNotice source="src/data/charlas.ts" />}
+        {charla.imagen && <div class="detail__media" data-reveal><Placeholder src={charla.imagen} alt="" ratio="16 / 9" eager /></div>}
+        <section aria-labelledby="desc-title" data-reveal>
+          <h2 class="h3 block-title" id="desc-title">Sobre la actividad</h2>
+          <div class="prose">
+            {parrafos(charla.descripcion).map((p) => <p>{p}</p>)}
+          </div>
+        </section>
 
-        <div class="stack" style="--stack:2.5rem">
-          <section aria-labelledby="desc-title" data-reveal>
-            <h2 class="h3 block-title" id="desc-title">Sobre la actividad</h2>
-            <div class="prose">
-              {charla.descripcion.map((p) => <p>{p}</p>)}
-            </div>
-          </section>
-
-          <section aria-labelledby="exp-title" data-reveal>
-            <h2 class="h3 block-title" id="exp-title">Expositores</h2>
-            <ul role="list" class="speakers">
-              {
-                charla.expositores.map((e) => (
+        {
+          charla.oradores.length > 0 && (
+            <section aria-labelledby="exp-title" data-reveal>
+              <h2 class="h3 block-title" id="exp-title">Oradores</h2>
+              <ul role="list" class="speakers">
+                {charla.oradores.map((o) => (
                   <li class="speaker">
-                    <span class="speaker__photo">
-                      {e.foto ? <img src={e.foto.src} alt={e.foto.alt} /> : <Icon name="user" size={30} />}
-                    </span>
+                    <span class="speaker__initial" aria-hidden="true">{o.nombre.charAt(0)}</span>
                     <span>
-                      <span class:list={['speaker__name', { 'is-tbc': !e.nombre }]}>{e.nombre ?? 'A confirmar'}</span>
-                      <span class="speaker__role">{e.rol}</span>
+                      <span class="speaker__name">{o.nombre}</span>
+                      {o.rol && <span class="speaker__role">{o.rol}</span>}
                     </span>
                   </li>
-                ))
-              }
-            </ul>
-          </section>
-        </div>
+                ))}
+              </ul>
+            </section>
+          )
+        }
       </div>
 
       <aside class="detail__aside" aria-label="Información práctica">
         <div class="info-card" data-reveal>
           <div class="info-card__head">
-            <DateStamp fecha={charla.fecha} tone="dark" size="lg" />
+            <DateStamp fecha={charla.fecha} tone="red" size="lg" />
             <div>
               <p class="info-card__weekday">{formatFecha(charla.fecha, { weekday: 'long' })}</p>
               <p class="info-card__date">{formatFecha(charla.fecha)}</p>
@@ -101,10 +89,6 @@ const otras = charlas
               <dt><Icon name="users" size={18} />Modalidad</dt>
               <dd>{charla.modalidad}</dd>
             </div>
-            <div>
-              <dt><Icon name="star" size={18} />Temática</dt>
-              <dd>{charla.tematica}</dd>
-            </div>
           </dl>
 
           <div class="info-card__cta">
@@ -112,22 +96,19 @@ const otras = charlas
               estado === 'proxima' ? (
                 <>
                   <ActionButton
-                    label={charla.inscripcion.label}
-                    href={charla.inscripcion.href}
-                    variant="gold"
+                    label="Inscribirme"
+                    href={charla.inscripcionUrl}
                     block
-                    pendingTag="Próximamente"
-                    pendingMessage="El formulario de inscripción todavía no está habilitado. Lo publicaremos en esta página y en nuestras redes."
+                    pendingTag="Sin inscripción"
+                    pendingMessage="Esta actividad no tiene un formulario de inscripción cargado. Consultá las redes del Centro para más información."
                   />
                   <p class="info-card__note">
-                    {charla.inscripcion.href
-                      ? 'La inscripción se completa en un formulario externo.'
-                      : 'La inscripción se habilitará próximamente.'}
+                    {charla.inscripcionUrl ? 'La inscripción se completa en un formulario externo.' : 'Por ahora no hay inscripción en línea para esta actividad.'}
                   </p>
                 </>
               ) : (
                 <p class="info-card__note info-card__note--past">
-                  <Icon name="info" size={16} /> Esta actividad ya se realizó. El material compartido se publicará en esta página cuando esté disponible.
+                  <Icon name="info" size={16} /> Esta actividad ya se realizó.
                 </p>
               )
             }
@@ -142,7 +123,7 @@ const otras = charlas
     otras.length > 0 && (
       <section class="section section--sand section--tight" aria-labelledby="otras-title">
         <div class="container">
-          <h2 class="h2" id="otras-title" style="margin-bottom:2rem">Otras próximas actividades</h2>
+          <h2 class="h2" id="otras-title" style="margin-bottom:2rem">Otras próximas charlas</h2>
           <div class="grid grid--3" data-reveal-stagger>
             {otras.map((c) => (
               <CharlaCard charla={c} />
@@ -156,33 +137,32 @@ const otras = charlas
 
 <style>
   .hero-badges { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.5rem !important; }
-
   .detail { display: grid; gap: 3rem; }
   @media (min-width: 960px) {
     .detail { grid-template-columns: 1fr 360px; gap: 4rem; align-items: start; }
     .detail__aside { position: sticky; top: calc(var(--header-h) + 1.5rem); }
   }
-  .block-title { padding-bottom: 0.9rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--line); }
+  .detail__main { display: grid; gap: 2.5rem; min-width: 0; }
+  .detail__media :global(img) { border-radius: var(--radius-lg); }
+  .block-title { padding-bottom: 0.9rem; margin-bottom: 1.25rem; border-bottom: 3px solid var(--red-600); display: inline-block; }
 
   .speakers { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); }
-  .speaker { display: flex; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
-  .speaker__photo { display: grid; place-items: center; flex: none; width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: var(--sand); color: var(--ink-faint); }
-  .speaker__photo img { width: 100%; height: 100%; object-fit: cover; }
-  .speaker__name { display: block; font-family: var(--font-serif); font-size: 1.25rem; font-weight: 600; }
-  .speaker__name.is-tbc { font-style: italic; color: var(--ink-faint); font-weight: 500; }
+  .speaker { display: flex; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--white); }
+  .speaker__initial { display: grid; place-items: center; flex: none; width: 52px; height: 52px; border-radius: 50%; background: var(--red-600); color: var(--white); font-family: var(--font-display); font-size: 1.6rem; }
+  .speaker__name { display: block; font-family: var(--font-cond); font-size: 1.2rem; font-weight: 500; }
   .speaker__role { display: block; font-size: var(--fs-sm); color: var(--ink-soft); }
 
-  .info-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
-  .info-card__head { display: flex; align-items: center; gap: 1.25rem; padding: 1.5rem; background: var(--sand); border-bottom: 1px solid var(--line); }
+  .info-card { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
+  .info-card__head { display: flex; align-items: center; gap: 1.25rem; padding: 1.5rem; background: var(--red-50); border-bottom: 1px solid var(--line); }
+  .info-card__weekday { font-size: var(--fs-sm); color: var(--red-600); font-weight: 700; }
   .info-card__weekday::first-letter { text-transform: uppercase; }
-  .info-card__weekday { font-size: var(--fs-sm); color: var(--gold-600); font-weight: 600; }
-  .info-card__date { font-family: var(--font-serif); font-size: 1.35rem; font-weight: 600; line-height: 1.15; }
+  .info-card__date { font-family: var(--font-cond); font-size: 1.3rem; font-weight: 500; line-height: 1.2; }
   .info-list { padding: 0.5rem 1.5rem; }
   .info-list > div { display: flex; justify-content: space-between; gap: 1rem; padding: 0.85rem 0; border-bottom: 1px solid var(--line); font-size: var(--fs-sm); }
   .info-list > div:last-child { border-bottom: 0; }
   .info-list dt { display: flex; align-items: center; gap: 0.5rem; color: var(--ink-soft); }
-  .info-list dt :global(.icon) { color: var(--gold-600); }
-  .info-list dd { font-weight: 600; text-align: right; }
+  .info-list dt :global(.icon) { color: var(--red-600); }
+  .info-list dd { font-weight: 700; text-align: right; }
   .info-card__cta { padding: 0 1.5rem 1.5rem; }
   .info-card__note { margin-top: 0.75rem; font-size: var(--fs-xs); color: var(--ink-faint); text-align: center; }
   .info-card__note--past { display: flex; gap: 0.5rem; text-align: left; font-size: var(--fs-sm); padding: 1rem; background: var(--sand); border-radius: var(--radius-sm); color: var(--ink-soft); }

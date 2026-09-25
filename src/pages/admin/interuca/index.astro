@@ -1,0 +1,112 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import AdminEmpty from '@/components/admin/AdminEmpty.astro';
+import RowAction from '@/components/admin/RowAction.astro';
+import Thumb from '@/components/admin/Thumb.astro';
+import Icon from '@/components/Icon.astro';
+import { setFlash } from '@/lib/flash';
+import { paramId } from '@/lib/forms';
+import { requireAdmin } from '@/lib/guard';
+import { deleteParticipacion, getParticipacion, listInteruca, RESULTADO_LABEL, resumenInteruca } from '@/lib/services/interuca';
+
+const denied = requireAdmin(Astro);
+if (denied) return denied;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const id = paramId(String(form.get('id') ?? ''));
+  if (id && form.get('_accion') === 'eliminar') {
+    const p = await getParticipacion(id);
+    if (p && (await deleteParticipacion(id))) setFlash(Astro.cookies, 'success', `Se eliminó ${p.disciplina} ${p.anio} del historial.`);
+  }
+  return Astro.redirect(`/admin/interuca${Astro.url.search}`, 303);
+}
+
+const todos = await listInteruca();
+const resumen = await resumenInteruca();
+const anios = [...new Set(todos.map((p) => p.anio))];
+const anio = Number(Astro.url.searchParams.get('anio')) || null;
+const lista = anio ? todos.filter((p) => p.anio === anio) : todos;
+---
+
+<AdminLayout title="INTERUCA" section="interuca" description="Participaciones, resultados y victorias por año y disciplina. Los campeonatos y los resultados destacados se resaltan en el historial público.">
+  <a href="/admin/interuca/nuevo" class="btn btn--sm" slot="actions"><Icon name="plus" /> Nuevo resultado</a>
+
+  {
+    todos.length > 0 && (
+      <div class="stats" style="margin-bottom:1.25rem">
+        <div class="stat"><span class="stat__value">{resumen.campeonatos}</span><span class="stat__label">Campeonatos</span></div>
+        <div class="stat"><span class="stat__value">{resumen.subcampeonatos}</span><span class="stat__label">Subcampeonatos</span></div>
+        <div class="stat"><span class="stat__value">{resumen.terceros}</span><span class="stat__label">Terceros puestos</span></div>
+        <div class="stat"><span class="stat__value">{resumen.ediciones}</span><span class="stat__label">Ediciones</span></div>
+      </div>
+    )
+  }
+
+  {
+    anios.length > 1 && (
+      <div class="list-toolbar">
+        <nav class="pill-select" aria-label="Filtrar por año">
+          <a href="/admin/interuca" aria-current={!anio ? 'page' : undefined}>Todos</a>
+          {anios.map((a) => <a href={`?anio=${a}`} aria-current={anio === a ? 'page' : undefined}>{a}</a>)}
+        </nav>
+      </div>
+    )
+  }
+
+  {
+    lista.length === 0 ? (
+      <AdminEmpty icon="trophy" title="El historial está vacío" text="Cargá los resultados de cada edición: disciplina, equipo, posición y fotos." action={{ href: '/admin/interuca/nuevo', label: 'Agregar resultado' }} />
+    ) : (
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th scope="col">Año</th>
+              <th scope="col">Disciplina</th>
+              <th scope="col">Resultado</th>
+              <th scope="col">Equipo</th>
+              <th scope="col"><span class="visually-hidden">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {lista.map((p) => (
+              <tr>
+                <td data-label="Año"><strong class="year">{p.anio}</strong></td>
+                <td>
+                  <a href={`/admin/interuca/${p.id}`} class="cell-main">
+                    <Thumb src={p.fotos[0]?.archivo} icon="trophy" />
+                    <span>
+                      <strong>{p.disciplina}</strong>
+                      <span class="cell-sub">{p.rama ?? 'Sin rama'} · {p.fotos.length} {p.fotos.length === 1 ? 'foto' : 'fotos'}</span>
+                    </span>
+                  </a>
+                </td>
+                <td data-label="Resultado">
+                  <span class:list={['result-badge', `result-badge--${p.resultado}`]}>{RESULTADO_LABEL[p.resultado]}</span>
+                  {p.destacado && <span class="badge badge--soft" style="margin-left:0.35rem">Destacado</span>}
+                  {p.resultadoDetalle && <span class="cell-sub">{p.resultadoDetalle}</span>}
+                </td>
+                <td data-label="Equipo">{p.equipo ?? '—'}</td>
+                <td>
+                  <div class="row-actions">
+                    <a href={`/admin/interuca/${p.id}`} class="icon-btn" title="Editar" aria-label={`Editar ${p.disciplina} ${p.anio}`}><Icon name="edit" size={17} /></a>
+                    <RowAction action="eliminar" id={p.id} icon="trash" danger label={`Eliminar ${p.disciplina} ${p.anio}`} confirmTitle="¿Eliminar este resultado?" confirm={`Se borrarán ${p.disciplina} ${p.anio} y sus fotos del historial.`} />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+</AdminLayout>
+
+<style>
+  .year { font-family: var(--font-display); font-size: 1.6rem; font-weight: 400; }
+  .result-badge { display: inline-block; padding: 0.2rem 0.6rem; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; border-radius: 3px; background: var(--sand); }
+  .result-badge--campeon { background: #f6e7c3; color: #6a4a0c; }
+  .result-badge--subcampeon { background: #e6e9ee; color: #3d4450; }
+  .result-badge--tercero { background: #f1dccb; color: #6b3a18; }
+</style>

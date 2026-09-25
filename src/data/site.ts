@@ -8,11 +8,13 @@ export const site = {
   /** Nombre completo. */
   nombre: 'Centro de Estudiantes de Derecho',
   institucion: 'Pontificia Universidad Católica Argentina',
-  /** Sigla provisional: confirmar la forma oficial que usa el Centro. */
-  sigla: 'CED',
+  /** Nombre corto que usa el Centro en sus publicaciones. */
+  sigla: 'CEDUCA',
   descripcion:
     'Centro de Estudiantes de la Facultad de Derecho de la UCA. Charlas, apuntes, acción social, deportes y vida universitaria.',
   lema: 'Formación, comunidad y compromiso.',
+  /** Hashtag de la delegación en INTERUCA (usado en las publicaciones). */
+  hashtagInteruca: '#DerechoALaCopa',
 } as const;
 
 export interface NavItem {
@@ -70,7 +72,8 @@ export const contacto: {
   horario: string | null;
 } = {
   email: null,
-  direccion: 'Facultad de Derecho · UCA · Campus Puerto Madero',
+  // Tomado de las publicaciones del Centro; confirmar antes de publicar.
+  direccion: 'CEDUCA · 2.º piso del edificio Moro, entre las escaleras',
   horario: null,
 };
 

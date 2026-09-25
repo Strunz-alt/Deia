@@ -1,0 +1,65 @@
+---
+/** Marco visual compartido por las páginas de ingreso y registro. */
+interface Props {
+  eyebrow: string;
+  title: string;
+  lead?: string;
+}
+
+const { eyebrow, title, lead } = Astro.props;
+---
+
+<section class="auth">
+  <div class="auth__bg" aria-hidden="true">
+    <img src="/brand/logo-ced.webp" alt="" width="520" height="520" class="auth__seal" />
+  </div>
+  <div class="container auth__inner">
+    <div class="auth__intro" data-reveal>
+      <p class="eyebrow">{eyebrow}</p>
+      <h1 class="h1 auth__title" set:html={title} />
+      {lead && <p class="auth__lead">{lead}</p>}
+      <slot name="intro" />
+    </div>
+    <div class="auth__card" data-reveal style="--reveal-i:1">
+      <slot />
+    </div>
+  </div>
+</section>
+
+<style>
+  .auth {
+    position: relative;
+    overflow: hidden;
+    padding-block: clamp(2.5rem, 2rem + 4vw, 5.5rem);
+    background:
+      linear-gradient(115deg, var(--red-700) 0 46%, var(--red-600) 46% 60%, transparent 60%),
+      var(--paper);
+  }
+  .auth__bg { position: absolute; inset: 0; pointer-events: none; }
+  .auth__seal {
+    position: absolute;
+    left: -120px;
+    bottom: -160px;
+    width: 520px;
+    opacity: 0.08;
+    filter: grayscale(1) brightness(3);
+  }
+  .auth__inner { position: relative; display: grid; gap: 2rem; align-items: center; }
+  @media (min-width: 900px) {
+    .auth__inner { grid-template-columns: 1fr minmax(380px, 460px); gap: 4rem; }
+  }
+  .auth__intro { color: var(--white); --color-accent-text: #ffd2cd; }
+  .auth__title { margin-top: 1rem; max-width: 12ch; }
+  .auth__title :global(span) { color: var(--red-950); background: var(--white); padding: 0 0.15em; }
+  .auth__lead { margin-top: 1.25rem; max-width: 44ch; color: #f6dcd9; }
+  .auth__card {
+    padding: clamp(1.5rem, 1rem + 2vw, 2.25rem);
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    border-top: 5px solid var(--red-600);
+  }
+  @media (max-width: 899px) {
+    .auth { background: linear-gradient(170deg, var(--red-700) 0 330px, var(--paper) 330px); }
+  }
+</style>

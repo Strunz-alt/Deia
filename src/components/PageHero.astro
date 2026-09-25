@@ -1,7 +1,7 @@
 ---
 /**
- * Encabezado de página interna: migas de pan, antetítulo, título y bajada.
- * `variant="dark"` para secciones con más protagonismo visual.
+ * Encabezado de página interna: franja roja con diagonal, título condensado
+ * y el escudo como marca de agua (recursos de las publicaciones del Centro).
  */
 interface Crumb {
   label: string;
@@ -13,37 +13,31 @@ interface Props {
   title: string;
   lead?: string;
   crumbs?: Crumb[];
-  variant?: 'light' | 'dark';
-  /** Numeral decorativo (p. ej. "II") que acompaña al título. */
-  numeral?: string;
+  /** `dark` usa el bordó profundo (páginas de detalle). */
+  variant?: 'red' | 'dark';
 }
 
-const { eyebrow, title, lead, crumbs = [], variant = 'light', numeral } = Astro.props;
+const { eyebrow, title, lead, crumbs = [], variant = 'red' } = Astro.props;
 const trail: Crumb[] = [{ label: 'Inicio', href: '/' }, ...crumbs];
 ---
 
 <section class:list={['page-hero', `page-hero--${variant}`]}>
+  <div class="page-hero__deco" aria-hidden="true">
+    <span class="page-hero__band"></span>
+    <img src="/brand/logo-ced.webp" alt="" width="420" height="420" class="page-hero__seal" loading="lazy" />
+  </div>
   <div class="container page-hero__inner">
     <nav aria-label="Migas de pan" class="crumbs">
       <ol role="list">
-        {
-          trail.map((c) => (
-            <li>
-              {c.href ? <a href={c.href}>{c.label}</a> : <span>{c.label}</span>}
-            </li>
-          ))
-        }
+        {trail.map((c) => <li>{c.href ? <a href={c.href}>{c.label}</a> : <span>{c.label}</span>}</li>)}
         <li><span aria-current="page">{title}</span></li>
       </ol>
     </nav>
-    <div class="page-hero__head">
-      <div class="page-hero__text" data-reveal>
-        {eyebrow && <p class="eyebrow">{eyebrow}</p>}
-        <h1 class="h1 page-hero__title">{title}</h1>
-        {lead && <p class="lead page-hero__lead">{lead}</p>}
-        <slot />
-      </div>
-      {numeral && <span class="page-hero__numeral" aria-hidden="true">{numeral}</span>}
+    <div class="page-hero__text" data-reveal>
+      {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+      <h1 class="h1 page-hero__title">{title}</h1>
+      {lead && <p class="page-hero__lead">{lead}</p>}
+      <slot />
     </div>
   </div>
   <slot name="after" />
@@ -52,56 +46,40 @@ const trail: Crumb[] = [{ label: 'Inicio', href: '/' }, ...crumbs];
 <style>
   .page-hero {
     position: relative;
-    padding-block: clamp(2rem, 1.5rem + 2vw, 3rem) clamp(3rem, 2rem + 4vw, 5.5rem);
-    border-bottom: 1px solid var(--line);
     overflow: hidden;
+    padding-block: clamp(1.75rem, 1.25rem + 2vw, 2.75rem) clamp(3rem, 2rem + 4vw, 5rem);
+    color: var(--white);
+    background: var(--red-600);
+    --color-muted: #f6d6d2;
+    --color-accent-text: #ffe1dd;
   }
-  .page-hero--dark {
-    background: var(--navy-900);
-    color: var(--ivory);
-    border-bottom: 0;
-    --color-muted: #b9c1d4;
-    --color-accent-text: var(--gold-500);
-  }
-  /* Trama sutil de líneas, recurso gráfico de la identidad. */
-  .page-hero::before {
-    content: '';
+  .page-hero--dark { background: var(--red-950); --color-accent-text: #ff8f86; }
+  .page-hero__deco { position: absolute; inset: 0; pointer-events: none; }
+  .page-hero__band {
     position: absolute;
-    inset: 0;
-    background-image: linear-gradient(to right, currentColor 1px, transparent 1px);
-    background-size: 120px 100%;
-    opacity: 0.045;
-    mask-image: linear-gradient(to left, #000 10%, transparent 75%);
-    pointer-events: none;
+    inset: 0 -10% 0 auto;
+    width: 55%;
+    background: linear-gradient(180deg, rgb(0 0 0 / 0.18), rgb(0 0 0 / 0.28));
+    transform: skewX(-18deg);
+    transform-origin: bottom;
+  }
+  .page-hero--dark .page-hero__band { background: linear-gradient(180deg, rgb(171 23 23 / 0.5), rgb(171 23 23 / 0.2)); }
+  .page-hero__seal {
+    position: absolute;
+    right: clamp(-140px, -8vw, -40px);
+    top: 50%;
+    width: clamp(220px, 30vw, 420px);
+    transform: translateY(-50%) rotate(-12deg);
+    opacity: 0.12;
+    filter: grayscale(1) brightness(4);
   }
   .page-hero__inner { position: relative; }
-  .crumbs ol { display: flex; flex-wrap: wrap; gap: 0.35rem; font-size: var(--fs-xs); color: var(--color-muted); }
+  .crumbs ol { display: flex; flex-wrap: wrap; gap: 0.35rem; font-size: var(--fs-xs); font-weight: 600; color: var(--color-muted); }
   .crumbs li:not(:last-child)::after { content: '/'; margin-left: 0.35rem; opacity: 0.6; }
-  .crumbs a { transition: color var(--dur-fast); }
-  .crumbs a:hover { color: var(--color-accent-text); text-decoration: underline; text-underline-offset: 3px; }
-  .crumbs [aria-current] { color: inherit; }
-
-  .page-hero__head {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    gap: 2rem;
-    margin-top: clamp(2rem, 1.5rem + 3vw, 4rem);
-  }
+  .crumbs a:hover { color: var(--white); text-decoration: underline; text-underline-offset: 3px; }
+  .crumbs [aria-current] { color: var(--white); }
+  .page-hero__text { margin-top: clamp(1.75rem, 1.25rem + 2.5vw, 3.25rem); max-width: 860px; }
   .page-hero__text > * + * { margin-top: 1rem; }
-  .page-hero__title { max-width: 18ch; }
-  .page-hero__lead { max-width: 58ch; }
-  .page-hero__numeral {
-    display: none;
-    font-family: var(--font-serif);
-    font-style: italic;
-    font-size: clamp(6rem, 4rem + 8vw, 12rem);
-    line-height: 0.8;
-    color: var(--gold-500);
-    opacity: 0.35;
-    user-select: none;
-  }
-  @media (min-width: 800px) {
-    .page-hero__numeral { display: block; }
-  }
+  .page-hero__title { text-shadow: 0 2px 0 rgb(0 0 0 / 0.12); }
+  .page-hero__lead { max-width: 60ch; font-size: var(--fs-md); color: var(--color-muted); }
 </style>

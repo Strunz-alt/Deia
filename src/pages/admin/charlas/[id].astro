@@ -1,0 +1,164 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import Icon from '@/components/Icon.astro';
+import ErrorSummary from '@/components/forms/ErrorSummary.astro';
+import Field from '@/components/forms/Field.astro';
+import ImageField from '@/components/forms/ImageField.astro';
+import SelectField from '@/components/forms/SelectField.astro';
+import { MODALIDADES, TIPOS_CHARLA, type Orador } from '@/db/schema';
+import { setFlash } from '@/lib/flash';
+import { paramId, todayISO, type FieldErrors, type FormValues } from '@/lib/forms';
+import { requireAdmin } from '@/lib/guard';
+import { deleteCharla, estadoCharla, getCharla, MAX_ORADORES, saveCharla } from '@/lib/services/charlas';
+
+const denied = requireAdmin(Astro);
+if (denied) return denied;
+
+const isNew = Astro.params.id === 'nueva';
+const id = isNew ? null : paramId(Astro.params.id);
+if (!isNew && !id) return Astro.redirect('/admin/charlas');
+const charla = id ? await getCharla(id) : null;
+if (!isNew && !charla) {
+  setFlash(Astro.cookies, 'error', 'La charla no existe o ya fue eliminada.');
+  return Astro.redirect('/admin/charlas');
+}
+
+let errors: FieldErrors = {};
+let values: FormValues = charla
+  ? {
+      titulo: charla.titulo,
+      tipo: charla.tipo,
+      tematica: charla.tematica ?? '',
+      descripcion: charla.descripcion,
+      fecha: charla.fecha,
+      hora: charla.hora ?? '',
+      lugar: charla.lugar,
+      modalidad: charla.modalidad,
+      inscripcionUrl: charla.inscripcionUrl ?? '',
+    }
+  : { tipo: 'Charla', modalidad: 'Presencial', fecha: todayISO() };
+let oradores: Orador[] = charla?.oradores ?? [];
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  if (form.get('_accion') === 'eliminar' && charla) {
+    await deleteCharla(charla.id);
+    setFlash(Astro.cookies, 'success', `Se eliminó «${charla.titulo}».`);
+    return Astro.redirect('/admin/charlas', 303);
+  }
+  const result = await saveCharla(form, charla);
+  if (result.ok) {
+    setFlash(Astro.cookies, 'success', result.message);
+    return Astro.redirect(`/admin/charlas/${result.id}`, 303);
+  }
+  errors = result.errors;
+  values = result.values;
+  oradores = result.oradores ?? [];
+  Astro.response.status = 400;
+}
+
+if (oradores.length === 0) oradores = [{ nombre: '', rol: '' }];
+const estado = charla ? estadoCharla(charla.fecha) : null;
+---
+
+<AdminLayout title={charla ? 'Editar charla' : 'Nueva charla'} section="charlas" back={{ href: '/admin/charlas', label: 'Charlas' }}>
+  {
+    charla && (
+      <a href={`/charlas/${charla.slug}`} target="_blank" rel="noopener" class="btn btn--sm btn--outline" slot="actions">
+        <Icon name="eye" /> Ver en el sitio
+      </a>
+    )
+  }
+  <form method="post" enctype="multipart/form-data" novalidate>
+    <div class="form-layout">
+      <div class="form-layout__main">
+        <section class="panel">
+          <ErrorSummary errors={errors} />
+          <div class="form-grid form-grid--2">
+            <Field name="titulo" label="Título" value={values.titulo} error={errors.titulo} required maxlength={160} class="span-all" />
+            <SelectField name="tipo" label="Formato" required value={values.tipo} error={errors.tipo} options={TIPOS_CHARLA.map((t) => ({ value: t, label: t }))} />
+            <Field name="tematica" label="Temática" value={values.tematica} error={errors.tematica} maxlength={100} placeholder="Ej.: Derecho Penal" />
+            <Field
+              name="descripcion"
+              label="Descripción"
+              type="textarea"
+              rows={7}
+              value={values.descripcion}
+              error={errors.descripcion}
+              required
+              maxlength={5000}
+              hint="Separá párrafos con una línea en blanco."
+              class="span-all"
+            />
+          </div>
+        </section>
+
+        <section class="panel" data-repeat>
+          <h2 class="panel__title"><Icon name="users" size={18} /> Oradores</h2>
+          <p class="panel__desc">Opcional. Hasta {MAX_ORADORES} personas.</p>
+          {errors.oradores && <p class="field__error" id="f-oradores" style="margin-bottom:0.75rem">{errors.oradores}</p>}
+          <div class="repeat-list" data-repeat-list>
+            {
+              oradores.map((o, i) => (
+                <div class="repeat-row" data-repeat-row>
+                  <div class="field">
+                    <label class="field__label" for={`orador-n-${i}`}>Nombre</label>
+                    <input id={`orador-n-${i}`} name="orador_nombre" class="input" value={o.nombre} maxlength="100" />
+                  </div>
+                  <div class="field">
+                    <label class="field__label" for={`orador-r-${i}`}>Rol o cargo</label>
+                    <input id={`orador-r-${i}`} name="orador_rol" class="input" value={o.rol} maxlength="120" placeholder="Ej.: Juez, profesor/a" />
+                  </div>
+                  <button type="button" class="icon-btn icon-btn--danger" data-repeat-remove aria-label="Quitar orador" title="Quitar"><Icon name="trash" size={17} /></button>
+                </div>
+              ))
+            }
+          </div>
+          <template data-repeat-template>
+            <div class="repeat-row" data-repeat-row>
+              <div class="field">
+                <label class="field__label" for="orador-n-__i__">Nombre</label>
+                <input id="orador-n-__i__" name="orador_nombre" class="input" maxlength="100" />
+              </div>
+              <div class="field">
+                <label class="field__label" for="orador-r-__i__">Rol o cargo</label>
+                <input id="orador-r-__i__" name="orador_rol" class="input" maxlength="120" placeholder="Ej.: Juez, profesor/a" />
+              </div>
+              <button type="button" class="icon-btn icon-btn--danger" data-repeat-remove aria-label="Quitar orador" title="Quitar"><Icon name="trash" size={17} /></button>
+            </div>
+          </template>
+          <button type="button" class="btn btn--sm btn--outline" data-repeat-add><Icon name="plus" /> Agregar orador</button>
+        </section>
+      </div>
+
+      <aside class="form-layout__side">
+        <section class="panel">
+          <h2 class="panel__title"><Icon name="calendar" size={18} /> Cuándo y dónde</h2>
+          {estado && <p style="margin-bottom:1rem">{estado === 'proxima' ? <span class="badge badge--live">Próxima</span> : <span class="badge badge--past">Realizada</span>}</p>}
+          <div class="form-grid">
+            <Field name="fecha" label="Fecha" type="date" value={values.fecha} error={errors.fecha} required />
+            <Field name="hora" label="Horario" type="time" value={values.hora} error={errors.hora} />
+            <SelectField name="modalidad" label="Modalidad" required value={values.modalidad} error={errors.modalidad} options={MODALIDADES.map((m) => ({ value: m, label: m }))} />
+            <Field name="lugar" label="Lugar" value={values.lugar} error={errors.lugar} required maxlength={160} placeholder="Aula, auditorio o plataforma" />
+            <Field name="inscripcionUrl" label="Enlace de inscripción" type="url" value={values.inscripcionUrl} error={errors.inscripcionUrl} maxlength={500} placeholder="https://" hint="Opcional. Si lo dejás vacío, se indica que la inscripción no está disponible." />
+          </div>
+        </section>
+        <section class="panel">
+          <ImageField name="imagen" label="Imagen" current={charla?.imagen} error={errors.imagen} ratio="16 / 9" />
+        </section>
+      </aside>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn" data-loading-text="Guardando…"><Icon name="check" /> {charla ? 'Guardar cambios' : 'Crear charla'}</button>
+      <a href="/admin/charlas" class="btn btn--outline">Cancelar</a>
+      <span class="form-actions__spacer"></span>
+      {
+        charla && (
+          <button type="submit" name="_accion" value="eliminar" class="btn btn--danger btn--sm" data-confirm-title="¿Eliminar la charla?" data-confirm={`Se borrarán «${charla.titulo}» y su imagen.`}>
+            <Icon name="trash" /> Eliminar
+          </button>
+        )
+      }
+    </div>
+  </form>
+</AdminLayout>

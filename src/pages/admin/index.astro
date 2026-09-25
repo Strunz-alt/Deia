@@ -1,0 +1,147 @@
+---
+import { desc, eq, gte, sql, type SQL } from 'drizzle-orm';
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import Icon, { type IconName } from '@/components/Icon.astro';
+import { db } from '@/db/client';
+import { charlas, interuca, logros, materiales, materias, miembros, noticias, usuarios } from '@/db/schema';
+import { todayISO } from '@/lib/forms';
+import { formatFecha } from '@/lib/format';
+import { requireAdmin } from '@/lib/guard';
+import { countWhere } from '@/lib/services/common';
+import { listMateriales } from '@/lib/services/materias';
+
+const denied = requireAdmin(Astro);
+if (denied) return denied;
+
+const count = (table: Parameters<typeof countWhere>[0], where: SQL = sql`1 = 1`) => countWhere(table, where);
+
+const [nMaterias, nMateriales, nMiembros, nLogros, nNoticias, nBorradores, nCharlas, nProximas, nInteruca, nUsuarios, nAdmins] =
+  await Promise.all([
+    count(materias),
+    count(materiales),
+    count(miembros),
+    count(logros),
+    count(noticias, eq(noticias.estado, 'publicada')),
+    count(noticias, eq(noticias.estado, 'borrador')),
+    count(charlas),
+    count(charlas, gte(charlas.fecha, todayISO())),
+    count(interuca),
+    count(usuarios),
+    count(usuarios, eq(usuarios.rol, 'admin')),
+  ]);
+
+const recientes = (await listMateriales()).slice(0, 5);
+const borradores = await db.select().from(noticias).where(eq(noticias.estado, 'borrador')).orderBy(desc(noticias.actualizadoEn)).limit(4);
+
+const stats: { label: string; value: number; sub?: string; href: string; icon: IconName }[] = [
+  { label: 'Materiales', value: nMateriales, sub: `${nMaterias} ${nMaterias === 1 ? 'materia' : 'materias'}`, href: '/admin/materiales', icon: 'file' },
+  { label: 'Noticias publicadas', value: nNoticias, sub: `${nBorradores} ${nBorradores === 1 ? 'borrador' : 'borradores'}`, href: '/admin/noticias', icon: 'news' },
+  { label: 'Charlas', value: nCharlas, sub: `${nProximas} ${nProximas === 1 ? 'próxima' : 'próximas'}`, href: '/admin/charlas', icon: 'mic' },
+  { label: 'INTERUCA', value: nInteruca, sub: 'resultados cargados', href: '/admin/interuca', icon: 'trophy' },
+  { label: 'Logros', value: nLogros, href: '/admin/logros', icon: 'star' },
+  { label: 'Miembros', value: nMiembros, href: '/admin/miembros', icon: 'users' },
+  { label: 'Usuarios', value: nUsuarios, sub: `${nAdmins} ${nAdmins === 1 ? 'administrador' : 'administradores'}`, href: '/admin/usuarios', icon: 'shield' },
+];
+
+const quick: { label: string; href: string; icon: IconName }[] = [
+  { label: 'Subir material', href: '/admin/materiales/nuevo', icon: 'upload' },
+  { label: 'Nueva noticia', href: '/admin/noticias/nueva', icon: 'news' },
+  { label: 'Nueva charla', href: '/admin/charlas/nueva', icon: 'mic' },
+  { label: 'Resultado INTERUCA', href: '/admin/interuca/nuevo', icon: 'trophy' },
+];
+---
+
+<AdminLayout title={`Hola, ${Astro.locals.user!.nombre.split(' ')[0]}`} section="inicio" description="Desde acá gestionás todo el contenido del sitio. Los cambios se publican al guardar.">
+  <div class="stats">
+    {
+      stats.map((s) => (
+        <a href={s.href} class="stat">
+          <span class="stat__icon"><Icon name={s.icon} size={22} /></span>
+          <span class="stat__value">{s.value}</span>
+          <span class="stat__label">{s.label}</span>
+          {s.sub && <span class="stat__sub">{s.sub}</span>}
+        </a>
+      ))
+    }
+  </div>
+
+  <div class="dash-grid">
+    <section class="panel">
+      <h2 class="panel__title"><Icon name="plus" size={18} /> Acciones rápidas</h2>
+      <div class="quick">
+        {
+          quick.map((q) => (
+            <a href={q.href} class="quick__item">
+              <Icon name={q.icon} size={20} />
+              {q.label}
+            </a>
+          ))
+        }
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="panel__title"><Icon name="file" size={18} /> Últimos materiales</h2>
+      {
+        recientes.length ? (
+          <ul role="list" class="mini-list">
+            {recientes.map((m) => (
+              <li>
+                <a href={`/admin/materiales/${m.id}`}>
+                  <strong>{m.titulo}</strong>
+                  <span>{m.materia}{m.catedra ? ` · ${m.catedra}` : ''} · {formatFecha(m.fecha, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="muted">Todavía no hay materiales. {nMaterias === 0 ? 'Empezá creando una materia.' : ''}</p>
+        )
+      }
+    </section>
+
+    <section class="panel">
+      <h2 class="panel__title"><Icon name="edit" size={18} /> Borradores de noticias</h2>
+      {
+        borradores.length ? (
+          <ul role="list" class="mini-list">
+            {borradores.map((n) => (
+              <li>
+                <a href={`/admin/noticias/${n.id}`}>
+                  <strong>{n.titulo}</strong>
+                  <span>Editado {formatFecha(n.actualizadoEn.toISOString().slice(0, 10), { day: 'numeric', month: 'short' })}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="muted">No hay borradores pendientes.</p>
+        )
+      }
+    </section>
+  </div>
+</AdminLayout>
+
+<style>
+  .dash-grid { display: grid; gap: 1.25rem; margin-top: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+  .dash-grid .panel + .panel { margin-top: 0; }
+  .quick { display: grid; gap: 0.6rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .quick__item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    transition: border-color var(--dur-fast), background-color var(--dur-fast), transform var(--dur) var(--ease-out);
+  }
+  .quick__item :global(.icon) { color: var(--red-600); }
+  .quick__item:hover { border-color: var(--red-600); background: var(--red-50); transform: translateY(-2px); }
+  .mini-list li + li { border-top: 1px solid var(--line); }
+  .mini-list a { display: flex; flex-direction: column; padding: 0.65rem 0; }
+  .mini-list a:hover strong { color: var(--red-600); }
+  .mini-list strong { font-size: var(--fs-sm); }
+  .mini-list span { font-size: var(--fs-xs); color: var(--ink-faint); }
+</style>

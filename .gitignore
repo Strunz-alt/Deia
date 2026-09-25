@@ -4,3 +4,6 @@ dist/
 .DS_Store
 *.log
 .env
+
+# Base de datos y archivos subidos (no versionar)
+data/

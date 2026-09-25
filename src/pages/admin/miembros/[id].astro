@@ -1,0 +1,88 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import Icon from '@/components/Icon.astro';
+import ErrorSummary from '@/components/forms/ErrorSummary.astro';
+import Field from '@/components/forms/Field.astro';
+import ImageField from '@/components/forms/ImageField.astro';
+import { setFlash } from '@/lib/flash';
+import { paramId, type FieldErrors, type FormValues } from '@/lib/forms';
+import { requireAdmin } from '@/lib/guard';
+import { deleteMiembro, getMiembro, listMiembros, saveMiembro } from '@/lib/services/miembros';
+
+const denied = requireAdmin(Astro);
+if (denied) return denied;
+
+const isNew = Astro.params.id === 'nuevo';
+const id = isNew ? null : paramId(Astro.params.id);
+if (!isNew && !id) return Astro.redirect('/admin/miembros');
+const miembro = id ? await getMiembro(id) : null;
+if (!isNew && !miembro) {
+  setFlash(Astro.cookies, 'error', 'El integrante no existe o ya fue eliminado.');
+  return Astro.redirect('/admin/miembros');
+}
+
+let errors: FieldErrors = {};
+let values: FormValues = miembro
+  ? { nombre: miembro.nombre, cargo: miembro.cargo, area: miembro.area ?? '', descripcion: miembro.descripcion ?? '' }
+  : {};
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  if (form.get('_accion') === 'eliminar' && miembro) {
+    await deleteMiembro(miembro.id);
+    setFlash(Astro.cookies, 'success', `Se quitó a ${miembro.nombre} de la sección Miembros.`);
+    return Astro.redirect('/admin/miembros', 303);
+  }
+  const result = await saveMiembro(form, miembro);
+  if (result.ok) {
+    setFlash(Astro.cookies, 'success', result.message);
+    return Astro.redirect('/admin/miembros', 303);
+  }
+  errors = result.errors;
+  values = result.values;
+  Astro.response.status = 400;
+}
+
+const areas = [...new Set((await listMiembros()).map((m) => m.area).filter(Boolean))] as string[];
+const sugeridas = [...new Set([...areas, 'Mesa directiva', 'Académica', 'Acción Social', 'Deportes', 'Relaciones Institucionales', 'Comunicación'])];
+---
+
+<AdminLayout title={miembro ? miembro.nombre : 'Nuevo integrante'} section="miembros" back={{ href: '/admin/miembros', label: 'Miembros' }}>
+  <form method="post" enctype="multipart/form-data" novalidate>
+    <div class="form-layout">
+      <div class="form-layout__main">
+        <section class="panel">
+          <ErrorSummary errors={errors} />
+          <div class="form-grid form-grid--2">
+            <Field name="nombre" label="Nombre y apellido" value={values.nombre} error={errors.nombre} required maxlength={100} />
+            <Field name="cargo" label="Cargo o rol en el Centro" value={values.cargo} error={errors.cargo} required maxlength={100} placeholder="Ej.: Presidencia, Secretaría general" />
+            <Field name="area" label="Área" value={values.area} error={errors.area} maxlength={80} list="areas" hint="Opcional. Se usa para agrupar y filtrar en la página pública." />
+            <datalist id="areas">{sugeridas.map((a) => <option value={a} />)}</datalist>
+            <Field name="descripcion" label="Descripción" type="textarea" rows={4} value={values.descripcion} error={errors.descripcion} maxlength={600} hint="Opcional: una breve presentación." class="span-all" />
+          </div>
+          <p class="notice notice--info" style="margin-top:1.25rem">
+            <Icon name="shield" size={18} />
+            <span>El cargo no otorga permisos de administrador en el sitio.</span>
+          </p>
+        </section>
+      </div>
+      <aside class="form-layout__side">
+        <section class="panel">
+          <ImageField name="foto" label="Foto de perfil" current={miembro?.foto} error={errors.foto} ratio="4 / 5" hint="Recomendado: vertical, JPG o WebP, hasta 5 MB." />
+        </section>
+      </aside>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn" data-loading-text="Guardando…"><Icon name="check" /> {miembro ? 'Guardar cambios' : 'Agregar integrante'}</button>
+      <a href="/admin/miembros" class="btn btn--outline">Cancelar</a>
+      <span class="form-actions__spacer"></span>
+      {
+        miembro && (
+          <button type="submit" name="_accion" value="eliminar" class="btn btn--danger btn--sm" data-confirm-title="¿Quitar a este integrante?" data-confirm={`${miembro.nombre} dejará de aparecer en la página de Miembros y se borrará su foto.`}>
+            <Icon name="trash" /> Eliminar
+          </button>
+        )
+      }
+    </div>
+  </form>
+</AdminLayout>

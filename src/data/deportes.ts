@@ -1,11 +1,8 @@
 /**
- * CONTENIDO DE EJEMPLO — Deportes e historial INTERUCA.
- *
- * Los resultados de INTERUCA son ilustrativos: sirven para ver cómo se
- * presenta el historial y NO representan victorias reales. Reemplazarlos
- * por los resultados oficiales de cada edición.
+ * CONTENIDO DE EJEMPLO — Disciplinas y agenda deportiva.
+ * (El historial INTERUCA se administra desde el panel: /admin/interuca.)
  */
-import type { ActividadDeportiva, Disciplina, EdicionInteruca } from './types';
+import type { ActividadDeportiva, Disciplina } from './types';
 
 const inscripcionPendiente = { label: 'Inscripción', href: null };
 const horarioPendiente = { dia: 'A confirmar', horario: '—', lugar: 'A confirmar' };
@@ -93,49 +90,5 @@ export const actividadesDeportivas: ActividadDeportiva[] = [
     fecha: '2026-10-17',
     lugar: 'A confirmar',
     tipo: 'Torneo',
-  },
-];
-
-const nota = 'Resultado ilustrativo — reemplazar por el dato oficial.';
-
-export const interuca: EdicionInteruca[] = [
-  {
-    ejemplo: true,
-    anio: 2025,
-    sede: 'Sede a confirmar',
-    resumen: 'Texto de ejemplo con un resumen de la edición: participación del equipo, momentos destacados y balance general.',
-    resultados: [
-      { ejemplo: true, disciplina: 'Fútbol', rama: 'Masculino', posicion: 1, detalle: nota },
-      { ejemplo: true, disciplina: 'Hockey', rama: 'Femenino', posicion: 2, detalle: nota },
-      { ejemplo: true, disciplina: 'Vóley', rama: 'Mixto', posicion: 3, detalle: nota },
-      { ejemplo: true, disciplina: 'Tenis', rama: 'Femenino', posicion: null, detalle: nota },
-    ],
-    hitos: ['Hito de ejemplo: primera participación en una nueva disciplina.', 'Hito de ejemplo: récord de delegación.'],
-    fotos: [],
-  },
-  {
-    ejemplo: true,
-    anio: 2024,
-    sede: 'Sede a confirmar',
-    resumen: 'Texto de ejemplo con un resumen de la edición.',
-    resultados: [
-      { ejemplo: true, disciplina: 'Rugby', rama: 'Masculino', posicion: 1, detalle: nota },
-      { ejemplo: true, disciplina: 'Vóley', rama: 'Femenino', posicion: 1, detalle: nota },
-      { ejemplo: true, disciplina: 'Básquet', rama: 'Masculino', posicion: 3, detalle: nota },
-    ],
-    hitos: ['Hito de ejemplo.'],
-    fotos: [],
-  },
-  {
-    ejemplo: true,
-    anio: 2023,
-    sede: 'Sede a confirmar',
-    resumen: 'Texto de ejemplo con un resumen de la edición.',
-    resultados: [
-      { ejemplo: true, disciplina: 'Fútbol', rama: 'Femenino', posicion: 2, detalle: nota },
-      { ejemplo: true, disciplina: 'Tenis', rama: 'Masculino', posicion: 1, detalle: nota },
-    ],
-    hitos: [],
-    fotos: [],
   },
 ];

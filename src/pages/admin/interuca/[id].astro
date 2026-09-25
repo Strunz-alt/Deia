@@ -1,0 +1,109 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import Icon from '@/components/Icon.astro';
+import CheckboxField from '@/components/forms/CheckboxField.astro';
+import ErrorSummary from '@/components/forms/ErrorSummary.astro';
+import Field from '@/components/forms/Field.astro';
+import ImagesField from '@/components/forms/ImagesField.astro';
+import SelectField from '@/components/forms/SelectField.astro';
+import { RAMAS, RESULTADOS_INTERUCA } from '@/db/schema';
+import { setFlash } from '@/lib/flash';
+import { paramId, type FieldErrors, type FormValues } from '@/lib/forms';
+import { requireAdmin } from '@/lib/guard';
+import {
+  deleteParticipacion,
+  getParticipacion,
+  listDisciplinasInteruca,
+  MAX_FOTOS_INTERUCA,
+  RESULTADO_LABEL,
+  saveParticipacion,
+} from '@/lib/services/interuca';
+
+const denied = requireAdmin(Astro);
+if (denied) return denied;
+
+const isNew = Astro.params.id === 'nuevo';
+const id = isNew ? null : paramId(Astro.params.id);
+if (!isNew && !id) return Astro.redirect('/admin/interuca');
+const part = id ? await getParticipacion(id) : null;
+if (!isNew && !part) {
+  setFlash(Astro.cookies, 'error', 'El resultado no existe o ya fue eliminado.');
+  return Astro.redirect('/admin/interuca');
+}
+
+let errors: FieldErrors = {};
+let values: FormValues = part
+  ? {
+      anio: String(part.anio),
+      disciplina: part.disciplina,
+      rama: part.rama ?? '',
+      equipo: part.equipo ?? '',
+      resultado: part.resultado,
+      resultadoDetalle: part.resultadoDetalle ?? '',
+      descripcion: part.descripcion ?? '',
+      destacado: part.destacado ? 'on' : '',
+    }
+  : { anio: String(new Date().getFullYear()), resultado: 'participacion' };
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  if (form.get('_accion') === 'eliminar' && part) {
+    await deleteParticipacion(part.id);
+    setFlash(Astro.cookies, 'success', `Se eliminó ${part.disciplina} ${part.anio} del historial.`);
+    return Astro.redirect('/admin/interuca', 303);
+  }
+  const result = await saveParticipacion(form, part);
+  if (result.ok) {
+    setFlash(Astro.cookies, 'success', result.message);
+    return Astro.redirect(`/admin/interuca/${result.id}`, 303);
+  }
+  errors = result.errors;
+  values = result.values;
+  Astro.response.status = 400;
+}
+
+const disciplinas = [...new Set([...(await listDisciplinasInteruca()), 'Fútbol', 'Hockey', 'Rugby', 'Vóley', 'Básquet', 'Tenis', 'Handball', 'Atletismo', 'Natación', 'Ajedrez'])];
+---
+
+<AdminLayout title={part ? `${part.disciplina} ${part.anio}` : 'Nuevo resultado'} section="interuca" back={{ href: '/admin/interuca', label: 'INTERUCA' }}>
+  <form method="post" enctype="multipart/form-data" novalidate>
+    <div class="form-layout">
+      <div class="form-layout__main">
+        <section class="panel">
+          <ErrorSummary errors={errors} />
+          <div class="form-grid form-grid--3">
+            <Field name="anio" label="Edición (año)" type="number" value={values.anio} error={errors.anio} required min={1990} max={new Date().getFullYear() + 1} />
+            <Field name="disciplina" label="Disciplina" value={values.disciplina} error={errors.disciplina} required maxlength={80} list="disciplinas" />
+            <datalist id="disciplinas">{disciplinas.map((d) => <option value={d} />)}</datalist>
+            <SelectField name="rama" label="Rama" value={values.rama} error={errors.rama} placeholder="Sin especificar" options={RAMAS.map((r) => ({ value: r, label: r }))} />
+            <SelectField name="resultado" label="Resultado" required value={values.resultado} error={errors.resultado} options={RESULTADOS_INTERUCA.map((r) => ({ value: r, label: RESULTADO_LABEL[r] }))} />
+            <Field name="resultadoDetalle" label="Detalle del resultado" value={values.resultadoDetalle} error={errors.resultadoDetalle} maxlength={120} placeholder="Ej.: Final 3-1, cuartos de final" class="span-2" />
+            <Field name="equipo" label="Equipo o participantes" type="textarea" rows={3} value={values.equipo} error={errors.equipo} maxlength={300} hint="Nombre del equipo o integrantes, separados por comas." class="span-all" />
+            <Field name="descripcion" label="Descripción" type="textarea" rows={5} value={values.descripcion} error={errors.descripcion} maxlength={3000} hint="Crónica, hitos o momentos destacados." class="span-all" />
+          </div>
+        </section>
+        <section class="panel">
+          <ImagesField name="fotos" label="Fotografías (equipo, trofeo, partido)" existing={part?.fotos} max={MAX_FOTOS_INTERUCA} error={errors.fotos} />
+        </section>
+      </div>
+      <aside class="form-layout__side">
+        <section class="panel">
+          <h2 class="panel__title"><Icon name="trophy" size={18} /> Presentación</h2>
+          <CheckboxField name="destacado" label="Destacar en el historial" checked={values.destacado === 'on'} hint="Los campeonatos se destacan siempre; marcá esta opción para resaltar también otros hitos." />
+        </section>
+      </aside>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn" data-loading-text="Guardando…"><Icon name="check" /> {part ? 'Guardar cambios' : 'Agregar al historial'}</button>
+      <a href="/admin/interuca" class="btn btn--outline">Cancelar</a>
+      <span class="form-actions__spacer"></span>
+      {
+        part && (
+          <button type="submit" name="_accion" value="eliminar" class="btn btn--danger btn--sm" data-confirm-title="¿Eliminar este resultado?" data-confirm={`Se borrarán ${part.disciplina} ${part.anio} y sus fotos del historial.`}>
+            <Icon name="trash" /> Eliminar
+          </button>
+        )
+      }
+    </div>
+  </form>
+</AdminLayout>

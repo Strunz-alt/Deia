@@ -1,12 +1,13 @@
 ---
-/* Tipografías autoalojadas (identidad provisional; ver src/styles/global.css). */
-import '@fontsource/cormorant-garamond/500.css';
-import '@fontsource/cormorant-garamond/500-italic.css';
-import '@fontsource/cormorant-garamond/600.css';
-import '@fontsource-variable/inter';
+/* Tipografías autoalojadas (ver tokens en src/styles/global.css). */
 import '@fontsource/bebas-neue/400.css';
+import '@fontsource/oswald/500.css';
+import '@fontsource/oswald/600.css';
+import '@fontsource-variable/montserrat';
+import '@fontsource-variable/montserrat/wght-italic.css';
 import '@/styles/global.css';
 
+import FlashMessage from '@/components/FlashMessage.astro';
 import Footer from '@/components/Footer.astro';
 import Header from '@/components/Header.astro';
 import { site } from '@/data/site';
@@ -19,7 +20,7 @@ interface Props {
 }
 
 const { title, description = site.descripcion, bodyClass } = Astro.props;
-const fullTitle = title ? `${title} · ${site.nombre} UCA` : `${site.nombre} · UCA`;
+const fullTitle = title ? `${title} · ${site.sigla}` : `${site.nombre} · UCA`;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 
@@ -31,12 +32,14 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <meta name="theme-color" content="#0e1b33" />
+    <link rel="icon" href="/favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#ab1717" />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="es_AR" />
+    <meta property="og:image" content={new URL('/brand/logo-ced.png', Astro.site)} />
     <!-- Sitio en desarrollo: no indexar hasta la publicación definitiva. -->
     <meta name="robots" content="noindex" />
     <script is:inline>document.documentElement.classList.add('js');</script>
@@ -48,12 +51,14 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
       <slot />
     </main>
     <Footer />
+    <FlashMessage />
 
     <div class="toast-region" aria-live="polite" aria-atomic="true" data-toast-region></div>
 
     <script>
       import '@/scripts/reveal';
       import '@/scripts/pending';
+      import '@/scripts/forms';
       import { autoInitFilters } from '@/scripts/filters';
       autoInitFilters();
     </script>
@@ -77,10 +82,10 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     gap: 0.75rem;
     align-items: flex-start;
     padding: 1rem 1.15rem;
-    background: var(--navy-900);
-    color: var(--ivory);
+    background: var(--ink);
+    color: var(--white);
     border-radius: var(--radius);
-    border-left: 3px solid var(--gold-500);
+    border-left: 4px solid var(--red-600);
     box-shadow: var(--shadow-lg);
     font-size: var(--fs-sm);
     line-height: 1.45;
@@ -88,8 +93,8 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     animation: toast-in var(--dur) var(--ease-out);
   }
   .toast.is-leaving { animation: toast-out var(--dur) var(--ease-out) forwards; }
-  .toast svg { flex: none; color: var(--gold-500); margin-top: 1px; }
-  .toast strong { display: block; font-weight: 600; margin-bottom: 0.1rem; }
+  .toast svg { flex: none; color: #ff8f86; margin-top: 1px; }
+  .toast strong { display: block; font-weight: 700; margin-bottom: 0.1rem; }
   @keyframes toast-in { from { opacity: 0; transform: translateY(12px); } }
   @keyframes toast-out { to { opacity: 0; transform: translateY(12px); } }
 </style>

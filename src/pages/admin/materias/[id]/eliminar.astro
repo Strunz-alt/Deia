@@ -1,0 +1,114 @@
+---
+/** Eliminación de una materia con cátedras o materiales asociados. */
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import Icon from '@/components/Icon.astro';
+import { setFlash } from '@/lib/flash';
+import { paramId } from '@/lib/forms';
+import { requireAdmin } from '@/lib/guard';
+import { deleteMateria, getMateria, listCatedras, listMaterias, materiaRelations } from '@/lib/services/materias';
+
+const denied = requireAdmin(Astro);
+if (denied) return denied;
+
+const id = paramId(Astro.params.id);
+const materia = id ? await getMateria(id) : null;
+if (!materia) {
+  setFlash(Astro.cookies, 'error', 'La materia no existe o ya fue eliminada.');
+  return Astro.redirect('/admin/materias');
+}
+
+let error = '';
+let modo = 'mover';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  modo = String(form.get('modo') ?? '');
+  const destino = paramId(String(form.get('destino') ?? ''));
+  if (modo === 'eliminar' && form.get('confirmo') !== 'on') {
+    error = 'Marcá la casilla de confirmación para eliminar también los materiales.';
+  } else if (modo === 'mover' || modo === 'eliminar') {
+    const result = await deleteMateria(materia.id, modo, destino);
+    if (result.ok) {
+      setFlash(
+        Astro.cookies,
+        'success',
+        modo === 'mover'
+          ? `Se eliminó «${result.nombre}» y sus contenidos se movieron a la materia elegida.`
+          : `Se eliminó «${result.nombre}» junto con sus cátedras y materiales.`,
+      );
+      return Astro.redirect(modo === 'mover' && destino ? `/admin/materias/${destino}` : '/admin/materias', 303);
+    }
+    error = result.error;
+  } else {
+    error = 'Elegí una opción.';
+  }
+  Astro.response.status = 400;
+}
+
+const rel = await materiaRelations(materia.id);
+const catedras = await listCatedras(materia.id);
+const otras = (await listMaterias()).filter((m) => m.id !== materia.id);
+---
+
+<AdminLayout
+  title={`Eliminar «${materia.nombre}»`}
+  section="materias"
+  back={{ href: `/admin/materias/${materia.id}`, label: 'Volver a la materia' }}
+  description="Esta materia tiene contenido asociado. Elegí qué hacer con él antes de eliminarla: no quedan registros ni archivos sueltos."
+>
+  <div class="form-layout">
+    <form method="post" class="form-layout__main">
+      <section class="panel">
+        <h2 class="panel__title"><Icon name="alert" size={18} /> Contenido asociado</h2>
+        <ul role="list" class="impact">
+          <li><strong>{rel.catedras}</strong> {rel.catedras === 1 ? 'cátedra' : 'cátedras'}{catedras.length > 0 && `: ${catedras.map((c) => c.nombre).join(', ')}`}</li>
+          <li><strong>{rel.materiales}</strong> {rel.materiales === 1 ? 'material con su archivo' : 'materiales con sus archivos'}</li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel__title">¿Qué querés hacer?</h2>
+        {error && <p class="notice notice--error" role="alert" style="margin-bottom:1rem"><Icon name="alert" size={18} /> {error}</p>}
+        <div class="radio-cards">
+          <div class="radio-card">
+            <input type="radio" name="modo" id="modo-mover" value="mover" checked={modo === 'mover'} disabled={otras.length === 0} />
+            <div>
+              <label for="modo-mover"><strong>Mover el contenido a otra materia</strong></label>
+              <span>Las cátedras y los materiales pasan a la materia elegida. Si ya tiene una cátedra con el mismo nombre, se unifican.</span>
+              {otras.length > 0 ? (
+                <select name="destino" class="select" aria-label="Materia de destino">
+                  <option value="">Elegí la materia de destino</option>
+                  {otras.map((m) => <option value={m.id}>{m.nombre}</option>)}
+                </select>
+              ) : (
+                <span class="field__hint">No hay otras materias creadas.</span>
+              )}
+            </div>
+          </div>
+          <div class="radio-card">
+            <input type="radio" name="modo" id="modo-eliminar" value="eliminar" checked={modo === 'eliminar' || otras.length === 0} />
+            <div>
+              <label for="modo-eliminar"><strong>Eliminar todo</strong></label>
+              <span>Se borran la materia, sus cátedras, sus materiales y los archivos descargables. No se puede deshacer.</span>
+              <label class="confirm-check">
+                <input type="checkbox" name="confirmo" /> Entiendo que se eliminarán {rel.materiales} {rel.materiales === 1 ? 'archivo' : 'archivos'} de forma permanente.
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn" data-loading-text="Procesando…"><Icon name="trash" /> Eliminar materia</button>
+          <a href={`/admin/materias/${materia.id}`} class="btn btn--outline">Cancelar</a>
+        </div>
+      </section>
+    </form>
+  </div>
+</AdminLayout>
+
+<style>
+  .impact { display: grid; gap: 0.5rem; }
+  .impact li { font-size: var(--fs-sm); }
+  .impact strong { font-family: var(--font-display); font-size: 1.6rem; margin-right: 0.3rem; color: var(--red-600); }
+  .confirm-check { display: flex; gap: 0.5rem; align-items: flex-start; margin-top: 0.75rem; font-size: var(--fs-sm); font-weight: 600; color: var(--red-700); }
+  .confirm-check input { accent-color: var(--red-600); margin-top: 3px; }
+</style>

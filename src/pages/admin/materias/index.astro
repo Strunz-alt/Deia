@@ -1,0 +1,88 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import AdminEmpty from '@/components/admin/AdminEmpty.astro';
+import Thumb from '@/components/admin/Thumb.astro';
+import Icon from '@/components/Icon.astro';
+import { requireAdmin } from '@/lib/guard';
+import { listMaterias } from '@/lib/services/materias';
+
+const denied = requireAdmin(Astro);
+if (denied) return denied;
+
+const materias = await listMaterias();
+---
+
+<AdminLayout
+  title="Materias y cátedras"
+  section="materias"
+  description="Organizá la biblioteca: cada material se asocia a una materia y, opcionalmente, a una de sus cátedras."
+>
+  <a href="/admin/materias/nueva" class="btn btn--sm" slot="actions"><Icon name="plus" /> Nueva materia</a>
+
+  {
+    materias.length === 0 ? (
+      <AdminEmpty
+        icon="layers"
+        title="Todavía no hay materias"
+        text="Creá la primera materia para empezar a cargar resúmenes y apuntes."
+        action={{ href: '/admin/materias/nueva', label: 'Crear materia' }}
+      />
+    ) : (
+      <>
+        <div class="list-toolbar">
+          <div class="field field--search">
+            <label class="field__label" for="q">Buscar materia</label>
+            <div class="input-icon">
+              <Icon name="search" size={18} />
+              <input id="q" type="search" class="input" placeholder="Nombre de la materia" data-table-filter="tabla-materias" />
+            </div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="admin-table" id="tabla-materias">
+            <thead>
+              <tr>
+                <th scope="col">Materia</th>
+                <th scope="col">Año</th>
+                <th scope="col" class="num">Cátedras</th>
+                <th scope="col" class="num">Materiales</th>
+                <th scope="col"><span class="visually-hidden">Acciones</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {materias.map((m) => (
+                <tr data-row>
+                  <td>
+                    <a href={`/admin/materias/${m.id}`} class="cell-main">
+                      <Thumb src={m.imagen} icon="book" />
+                      <span>
+                        <strong>{m.nombre}</strong>
+                        {m.descripcion && <span class="cell-sub">{m.descripcion.slice(0, 90)}</span>}
+                      </span>
+                    </a>
+                  </td>
+                  <td data-label="Año">{m.anio ? `${m.anio}.º año` : '—'}</td>
+                  <td data-label="Cátedras" class="num">{m.catedras}</td>
+                  <td data-label="Materiales" class="num">
+                    <a href={`/admin/materiales?materia=${m.id}`} class="link-arrow">{m.materiales}</a>
+                  </td>
+                  <td>
+                    <div class="row-actions">
+                      <a href={`/admin/materiales/nuevo?materia=${m.id}`} class="icon-btn" title="Subir material a esta materia" aria-label={`Subir material a ${m.nombre}`}>
+                        <Icon name="upload" size={17} />
+                      </a>
+                      <a href={`/admin/materias/${m.id}`} class="icon-btn" title="Editar" aria-label={`Editar ${m.nombre}`}>
+                        <Icon name="edit" size={17} />
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p id="tabla-materias-empty" class="muted" hidden>No hay materias que coincidan con la búsqueda.</p>
+      </>
+    )
+  }
+</AdminLayout>

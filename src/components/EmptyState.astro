@@ -36,11 +36,9 @@ const { icon = 'hourglass', title, text, filterEmpty = false, compact = false } 
     gap: 0.6rem;
     padding: clamp(2.5rem, 2rem + 3vw, 4rem) 1.5rem;
     text-align: center;
-    border: 1px dashed var(--line-strong);
+    border: 1.5px dashed var(--line-strong);
     border-radius: var(--radius);
-    background:
-      radial-gradient(circle at 50% 0%, rgb(184 149 92 / 0.08), transparent 60%),
-      var(--paper);
+    background: var(--white);
   }
   .empty--compact { padding: 2rem 1.25rem; }
   .empty__icon {
@@ -50,15 +48,14 @@ const { icon = 'hourglass', title, text, filterEmpty = false, compact = false } 
     height: 58px;
     margin-bottom: 0.4rem;
     border-radius: 50%;
-    border: 1px solid var(--gold-200);
-    color: var(--gold-600);
-    background: var(--ivory);
+    background: var(--red-50);
+    color: var(--red-600);
   }
-  .empty__title { font-family: var(--font-serif); font-size: 1.5rem; font-weight: 600; color: var(--navy-900); }
+  .empty__title { font-family: var(--font-display); font-size: 1.9rem; line-height: 1; letter-spacing: 0.02em; text-transform: uppercase; color: var(--ink); }
   .empty__text { max-width: 46ch; color: var(--ink-soft); font-size: var(--fs-sm); }
   .empty :global(.btn) { margin-top: 0.75rem; }
-  :global(.section--dark) .empty { background: rgb(255 255 255 / 0.03); border-color: rgb(255 255 255 / 0.2); }
-  :global(.section--dark) .empty__title { color: var(--ivory); }
-  :global(.section--dark) .empty__text { color: #b9c1d4; }
-  :global(.section--dark) .empty__icon { background: transparent; border-color: rgb(184 149 92 / 0.4); color: var(--gold-500); }
+  :global(.section--dark) .empty { background: rgb(255 255 255 / 0.04); border-color: rgb(255 255 255 / 0.22); }
+  :global(.section--dark) .empty__title { color: var(--white); }
+  :global(.section--dark) .empty__text { color: #d9c7c6; }
+  :global(.section--dark) .empty__icon { background: rgb(255 255 255 / 0.08); color: #ff8f86; }
 </style>

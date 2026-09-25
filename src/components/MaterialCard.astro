@@ -1,0 +1,120 @@
+---
+/** Material de la biblioteca. Los botones sólo se muestran a usuarios con sesión. */
+import Icon from './Icon.astro';
+import { formatFecha } from '@/lib/format';
+import { formatBytes } from '@/lib/storage';
+
+interface Props {
+  material: {
+    id: number;
+    titulo: string;
+    descripcion: string | null;
+    tipo: string;
+    fecha: string;
+    materia: string;
+    materiaId: number;
+    catedra: string | null;
+    catedraId: number | null;
+    anio: number | null;
+    archivoNombre: string;
+    archivoTipo: string;
+    archivoTamano: number;
+  };
+}
+
+const { material: m } = Astro.props;
+const ext = m.archivoNombre.split('.').pop()?.toUpperCase() ?? 'PDF';
+const isPdf = m.archivoTipo === 'application/pdf';
+---
+
+<article
+  class="card material"
+  data-filter-item
+  data-f-materia={String(m.materiaId)}
+  data-f-catedra={m.catedraId ? String(m.catedraId) : 'general'}
+  data-f-anio={m.anio ? String(m.anio) : ''}
+  data-f-tipo={m.tipo}
+  data-fecha={m.fecha}
+  data-orden-materia={m.materia}
+  data-search={`${m.titulo} ${m.materia} ${m.catedra ?? ''} ${m.tipo} ${m.descripcion ?? ''}`}
+>
+  <div class="material__icon" aria-hidden="true">
+    <Icon name="file" size={24} />
+    <span class="material__ext">{ext}</span>
+  </div>
+  <div class="material__main">
+    <div class="card__meta">
+      <span class="badge badge--soft">{m.tipo}</span>
+      {m.anio && <span class="badge">{m.anio}.º año</span>}
+    </div>
+    <h3 class="material__title">{m.titulo}</h3>
+    {m.descripcion && <p class="material__desc">{m.descripcion}</p>}
+    <dl class="material__data">
+      <div><dt>Materia</dt><dd>{m.materia}</dd></div>
+      <div><dt>Cátedra</dt><dd>{m.catedra ?? 'General'}</dd></div>
+      <div><dt>Fecha</dt><dd><time datetime={m.fecha}>{formatFecha(m.fecha, { month: 'short', year: 'numeric' })}</time></dd></div>
+      <div><dt>Tamaño</dt><dd>{formatBytes(m.archivoTamano)}</dd></div>
+    </dl>
+  </div>
+  <div class="material__actions">
+    {
+      isPdf && (
+        <a href={`/apuntes/archivo/${m.id}`} target="_blank" rel="noopener" class="btn btn--sm btn--outline">
+          <Icon name="eye" /> Ver
+        </a>
+      )
+    }
+    <a href={`/apuntes/archivo/${m.id}?descargar=1`} class="btn btn--sm">
+      <Icon name="download" /> Descargar
+    </a>
+  </div>
+</article>
+
+<style>
+  .material {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1rem 1.2rem;
+    padding: 1.3rem;
+    transition: border-color var(--dur), box-shadow var(--dur), transform var(--dur) var(--ease-out);
+  }
+  .material:hover { border-color: var(--red-200); box-shadow: var(--shadow); }
+  .material__icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 54px;
+    height: 64px;
+    border-radius: 6px;
+    background: var(--red-600);
+    color: var(--white);
+    clip-path: polygon(0 0, 72% 0, 100% 22%, 100% 100%, 0 100%);
+  }
+  .material__ext {
+    position: absolute;
+    bottom: 5px;
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+  }
+  .material__main { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+  .material__title { font-family: var(--font-cond); font-size: 1.3rem; font-weight: 500; line-height: 1.2; }
+  .material__desc { font-size: var(--fs-sm); color: var(--ink-soft); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .material__data { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; font-size: var(--fs-xs); }
+  .material__data dt { color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.62rem; font-weight: 700; }
+  .material__data dd { font-weight: 600; }
+  .material__actions {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--line);
+  }
+
+  :global([data-view='list']) .material { grid-template-columns: auto 1fr; }
+  @media (min-width: 900px) {
+    :global([data-view='list']) .material { grid-template-columns: auto 1fr auto; align-items: center; }
+    :global([data-view='list']) .material__actions { grid-column: auto; border-top: 0; padding-top: 0; flex-direction: column; }
+  }
+</style>

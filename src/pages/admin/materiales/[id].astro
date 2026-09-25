@@ -1,0 +1,167 @@
+---
+/** Alta (`/admin/materiales/nuevo`) y edición de un material de estudio. */
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import Icon from '@/components/Icon.astro';
+import DocumentField from '@/components/forms/DocumentField.astro';
+import ErrorSummary from '@/components/forms/ErrorSummary.astro';
+import Field from '@/components/forms/Field.astro';
+import SelectField from '@/components/forms/SelectField.astro';
+import { TIPOS_MATERIAL } from '@/db/schema';
+import { setFlash } from '@/lib/flash';
+import { paramId, todayISO, type FieldErrors, type FormValues } from '@/lib/forms';
+import { requireAdmin } from '@/lib/guard';
+import { deleteMaterial, getMaterial, listAllCatedras, listMaterias, saveMaterial } from '@/lib/services/materias';
+
+const denied = requireAdmin(Astro);
+if (denied) return denied;
+
+const isNew = Astro.params.id === 'nuevo';
+const id = isNew ? null : paramId(Astro.params.id);
+if (!isNew && !id) return Astro.redirect('/admin/materiales');
+const material = id ? await getMaterial(id) : null;
+if (!isNew && !material) {
+  setFlash(Astro.cookies, 'error', 'El material no existe o ya fue eliminado.');
+  return Astro.redirect('/admin/materiales');
+}
+
+const materias = await listMaterias();
+if (materias.length === 0) {
+  setFlash(Astro.cookies, 'info', 'Antes de subir materiales, creá al menos una materia.');
+  return Astro.redirect('/admin/materias/nueva');
+}
+const catedras = await listAllCatedras();
+
+let errors: FieldErrors = {};
+let values: FormValues = material
+  ? {
+      titulo: material.titulo,
+      descripcion: material.descripcion ?? '',
+      tipo: material.tipo,
+      materiaId: String(material.materiaId),
+      catedraId: material.catedraId ? String(material.catedraId) : '',
+      fecha: material.fecha,
+    }
+  : { tipo: 'Resumen', fecha: todayISO(), materiaId: Astro.url.searchParams.get('materia') ?? '' };
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  if (form.get('_accion') === 'eliminar' && material) {
+    await deleteMaterial(material.id);
+    setFlash(Astro.cookies, 'success', `Se eliminó «${material.titulo}» y su archivo.`);
+    return Astro.redirect('/admin/materiales', 303);
+  }
+  const result = await saveMaterial(form, material, Astro.locals.user!.id);
+  if (result.ok) {
+    setFlash(Astro.cookies, 'success', result.message);
+    return Astro.redirect(`/admin/materiales/${result.id}`, 303);
+  }
+  errors = result.errors;
+  values = result.values;
+  Astro.response.status = 400;
+}
+
+const labels = { titulo: 'Título', tipo: 'Tipo', materiaId: 'Materia', catedraId: 'Cátedra', fecha: 'Fecha', archivo: 'Archivo', descripcion: 'Descripción' };
+---
+
+<AdminLayout
+  title={material ? 'Editar material' : 'Subir material'}
+  section="materiales"
+  back={{ href: '/admin/materiales', label: 'Materiales' }}
+>
+  <form method="post" enctype="multipart/form-data" novalidate>
+    <div class="form-layout">
+      <div class="form-layout__main">
+        <section class="panel">
+          <ErrorSummary errors={errors} labels={labels} />
+          <div class="form-grid form-grid--2" style="margin-top:0.25rem">
+            <Field name="titulo" label="Título" value={values.titulo} error={errors.titulo} required maxlength={160} class="span-all" />
+            <SelectField
+              name="materiaId"
+              label="Materia"
+              required
+              value={values.materiaId}
+              error={errors.materiaId}
+              placeholder="Elegí la materia"
+              options={materias.map((m) => ({ value: m.id, label: m.anio ? `${m.nombre} (${m.anio}.º)` : m.nombre }))}
+            />
+            <div class:list={['field', { 'field--invalid': errors.catedraId }]}>
+              <label class="field__label" for="f-catedraId">Cátedra</label>
+              <select id="f-catedraId" name="catedraId" class="select" data-catedra-for="f-materiaId" aria-describedby="f-catedraId-hint">
+                <option value="">General (sin cátedra)</option>
+                {catedras.map((c) => (
+                  <option value={c.id} data-materia={c.materiaId} selected={String(c.id) === values.catedraId}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </select>
+              <p class="field__hint" id="f-catedraId-hint">Se muestran las cátedras de la materia elegida.</p>
+              <p class="field__hint" id="f-catedraId-sin" hidden>
+                Esta materia no tiene cátedras. Podés crearlas desde <a href="/admin/materias" style="text-decoration:underline">Materias y cátedras</a>.
+              </p>
+              {errors.catedraId && <p class="field__error">{errors.catedraId}</p>}
+            </div>
+            <SelectField
+              name="tipo"
+              label="Tipo de material"
+              required
+              value={values.tipo}
+              error={errors.tipo}
+              options={TIPOS_MATERIAL.map((t) => ({ value: t, label: t }))}
+            />
+            <Field name="fecha" label="Fecha" type="date" value={values.fecha} error={errors.fecha} required hint="Fecha de elaboración o actualización." />
+            <Field
+              name="descripcion"
+              label="Descripción"
+              type="textarea"
+              rows={4}
+              value={values.descripcion}
+              error={errors.descripcion}
+              maxlength={1000}
+              hint="Opcional: temas que abarca, unidades, año de cursada, etc."
+              class="span-all"
+            />
+          </div>
+        </section>
+      </div>
+
+      <aside class="form-layout__side">
+        <section class="panel">
+          <h2 class="panel__title"><Icon name="file" size={18} /> Archivo</h2>
+          <DocumentField
+            name="archivo"
+            label="Archivo descargable"
+            required={!material}
+            error={errors.archivo}
+            current={material ? { nombre: material.archivoNombre, tamano: material.archivoTamano, href: `/apuntes/archivo/${material.id}` } : null}
+          />
+          <p class="field__hint lock-hint"><Icon name="lock" size={14} /> Sólo usuarios registrados pueden abrirlo.</p>
+        </section>
+      </aside>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn" data-loading-text="Subiendo…"><Icon name="check" /> {material ? 'Guardar cambios' : 'Publicar material'}</button>
+      <a href="/admin/materiales" class="btn btn--outline">Cancelar</a>
+      <span class="form-actions__spacer"></span>
+      {
+        material && (
+          <button
+            type="submit"
+            name="_accion"
+            value="eliminar"
+            formnovalidate
+            class="btn btn--danger btn--sm"
+            data-confirm={`Se borrarán «${material.titulo}» y su archivo. Esta acción no se puede deshacer.`}
+            data-confirm-title="¿Eliminar este material?"
+          >
+            <Icon name="trash" /> Eliminar
+          </button>
+        )
+      }
+    </div>
+  </form>
+</AdminLayout>
+
+<style>
+  .lock-hint { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.75rem; }
+</style>
