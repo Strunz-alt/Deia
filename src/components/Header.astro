@@ -1,0 +1,499 @@
+---
+import Icon from './Icon.astro';
+import Logo from './Logo.astro';
+import { isNavGroup, navDestacado, navegacion, type NavItem } from '@/data/site';
+
+const user = Astro.locals.user;
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const next = encodeURIComponent(Astro.url.pathname + Astro.url.search);
+
+/** Una ruta está activa si coincide exactamente o es una subpágina (salvo Inicio). */
+const isActive = (href: string) => (href === '/' ? path === '/' : path === href || path.startsWith(`${href}/`));
+/** Para los submenús se toma la coincidencia más específica (Deportes vs. INTERUCA). */
+const activeIn = (items: NavItem[]) =>
+  items.filter((i) => isActive(i.href)).sort((a, b) => b.href.length - a.href.length)[0]?.href;
+const initials = user?.nombre
+  .split(/\s+/)
+  .slice(0, 2)
+  .map((p) => p[0]?.toUpperCase())
+  .join('');
+---
+
+<header class="site-header" data-header>
+  <div class="container site-header__inner">
+    <a href="/" class="site-header__brand" aria-label="Inicio — Centro de Estudiantes de Derecho UCA">
+      <Logo />
+    </a>
+
+    <nav class="nav-desktop" aria-label="Principal">
+      <ul role="list" class="nav-desktop__list">
+        {
+          navegacion.map((entry, i) =>
+            isNavGroup(entry) ? (
+              <li class="nav-group" data-dropdown>
+                <button
+                  type="button"
+                  class:list={['nav-link', { 'is-active': activeIn(entry.items) }]}
+                  aria-expanded="false"
+                  aria-controls={`dropdown-${i}`}
+                  data-dropdown-toggle
+                >
+                  {entry.label}
+                  <Icon name="chevron" size={14} />
+                </button>
+                <div class="dropdown" id={`dropdown-${i}`}>
+                  <ul role="list">
+                    {entry.items.map((item) => (
+                      <li>
+                        <a
+                          href={item.href}
+                          class="dropdown__link"
+                          aria-current={activeIn(entry.items) === item.href ? 'page' : undefined}
+                        >
+                          <span class="dropdown__label">{item.label}</span>
+                          {item.descripcion && <span class="dropdown__desc">{item.descripcion}</span>}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </li>
+            ) : (
+              <li>
+                <a
+                  href={entry.href}
+                  class:list={['nav-link', { 'is-active': isActive(entry.href) }]}
+                  aria-current={isActive(entry.href) ? 'page' : undefined}
+                >
+                  {entry.label}
+                </a>
+              </li>
+            ),
+          )
+        }
+      </ul>
+      <a
+        href={navDestacado.href}
+        class="btn btn--sm"
+        aria-current={isActive(navDestacado.href) ? 'page' : undefined}
+      >
+        <Icon name="book" />
+        {navDestacado.label}
+      </a>
+      {
+        user ? (
+          <div class="nav-group account" data-dropdown>
+            <button
+              type="button"
+              class="account__btn"
+              aria-expanded="false"
+              aria-controls="account-menu"
+              data-dropdown-toggle
+            >
+              <span class="account__avatar" aria-hidden="true">{initials}</span>
+              <span class="visually-hidden">Menú de la cuenta de {user.nombre}</span>
+              <Icon name="chevron" size={14} />
+            </button>
+            <div class="dropdown dropdown--end" id="account-menu">
+              <div class="account__info">
+                <span class="account__name">{user.nombre}</span>
+                <span class="account__email">{user.email}</span>
+                <span class:list={['badge', user.rol === 'admin' ? 'badge--red' : 'badge--soft']}>
+                  {user.rol === 'admin' ? 'Administrador' : 'Estudiante'}
+                </span>
+              </div>
+              <ul role="list">
+                {user.rol === 'admin' && (
+                  <li>
+                    <a href="/admin" class="dropdown__link">
+                      <span class="dropdown__label">Panel de administración</span>
+                    </a>
+                  </li>
+                )}
+                <li>
+                  <a href="/apuntes" class="dropdown__link">
+                    <span class="dropdown__label">Mis materiales de estudio</span>
+                  </a>
+                </li>
+                <li>
+                  <form method="post" action="/salir">
+                    <button type="submit" class="dropdown__link dropdown__logout">
+                      <span class="dropdown__label">Cerrar sesión</span>
+                    </button>
+                  </form>
+                </li>
+              </ul>
+            </div>
+          </div>
+        ) : (
+          <a href={`/ingresar?next=${next}`} class="nav-login">
+            <Icon name="user" size={18} /> Ingresar
+          </a>
+        )
+      }
+    </nav>
+
+    <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="mobile-menu" data-menu-toggle>
+      <span class="visually-hidden" data-menu-label>Abrir menú</span>
+      <span class="menu-toggle__bars" aria-hidden="true"><span></span><span></span><span></span></span>
+    </button>
+  </div>
+
+  <div class="mobile-menu" id="mobile-menu" data-mobile-menu hidden>
+    <nav class="container mobile-menu__inner" aria-label="Principal (móvil)">
+      {
+        user ? (
+          <div class="mobile-account">
+            <span class="account__avatar" aria-hidden="true">{initials}</span>
+            <span class="mobile-account__text">
+              <span class="account__name">{user.nombre}</span>
+              <span class="account__email">{user.rol === 'admin' ? 'Administrador' : 'Estudiante'}</span>
+            </span>
+          </div>
+        ) : null
+      }
+      <div class="mobile-menu__ctas">
+        <a href={navDestacado.href} class="btn btn--block">
+          <Icon name="book" />
+          {navDestacado.label}
+        </a>
+        {user?.rol === 'admin' && <a href="/admin" class="btn btn--dark btn--block">Panel de administración</a>}
+        {!user && <a href={`/ingresar?next=${next}`} class="btn btn--outline btn--block">Ingresar</a>}
+      </div>
+      <ul role="list" class="mobile-menu__list">
+        {
+          navegacion.map((entry) =>
+            isNavGroup(entry) ? (
+              <li class="mobile-menu__group">
+                <p class="mobile-menu__heading">{entry.label}</p>
+                <ul role="list">
+                  {entry.items.map((item) => (
+                    <li>
+                      <a
+                        href={item.href}
+                        class="mobile-menu__link"
+                        aria-current={activeIn(entry.items) === item.href ? 'page' : undefined}
+                      >
+                        {item.label}
+                        <Icon name="arrow" size={18} />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ) : (
+              <li>
+                <a href={entry.href} class="mobile-menu__link" aria-current={isActive(entry.href) ? 'page' : undefined}>
+                  {entry.label}
+                  <Icon name="arrow" size={18} />
+                </a>
+              </li>
+            ),
+          )
+        }
+      </ul>
+      {
+        user && (
+          <form method="post" action="/salir" class="mobile-menu__logout">
+            <button type="submit" class="btn btn--danger btn--block">Cerrar sesión</button>
+          </form>
+        )
+      }
+    </nav>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgb(255 255 255 / 0.94);
+    backdrop-filter: saturate(1.4) blur(14px);
+    -webkit-backdrop-filter: saturate(1.4) blur(14px);
+    border-top: 4px solid var(--red-600);
+    border-bottom: 1px solid transparent;
+    transition: border-color var(--dur), box-shadow var(--dur);
+  }
+  .site-header[data-scrolled] {
+    border-bottom-color: var(--line);
+    box-shadow: 0 8px 24px -18px rgb(33 5 6 / 0.45);
+  }
+  .site-header__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    height: var(--header-h);
+  }
+  .site-header__brand { flex: none; border-radius: var(--radius-sm); }
+
+  /* ---- Escritorio ---- */
+  .nav-desktop { display: none; align-items: center; gap: 0.9rem; }
+  .nav-desktop__list { display: flex; align-items: center; gap: 0.1rem; }
+
+  .nav-link {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink);
+    border-radius: var(--radius-sm);
+    transition: color var(--dur-fast);
+  }
+  .nav-link:hover { color: var(--red-600); }
+  .nav-link::after {
+    content: '';
+    position: absolute;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: 0.25rem;
+    height: 3px;
+    background: var(--red-600);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform var(--dur) var(--ease-out);
+  }
+  .nav-link:hover::after,
+  .nav-link.is-active::after { transform: scaleX(1); }
+  .nav-link.is-active { color: var(--red-600); }
+  .nav-link :global(.icon), .account__btn :global(.icon) { transition: transform var(--dur) var(--ease-out); }
+  [aria-expanded='true'] :global(.icon-chevron) { transform: rotate(180deg); }
+
+  .nav-login {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 999px;
+    transition: border-color var(--dur-fast), color var(--dur-fast);
+  }
+  .nav-login:hover { border-color: var(--red-600); color: var(--red-600); }
+
+  .nav-group { position: relative; }
+  .dropdown {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 50%;
+    min-width: 290px;
+    padding: 0.5rem;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--red-600);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    visibility: hidden;
+    transform: translate(-50%, 6px);
+    transition: opacity var(--dur) var(--ease-out), transform var(--dur) var(--ease-out), visibility 0s linear var(--dur);
+  }
+  .dropdown--end { left: auto; right: 0; transform: translateY(6px); }
+  .dropdown::before { content: ''; position: absolute; inset: -0.7rem 0 auto; height: 0.7rem; }
+  .nav-group:not(.account):hover .dropdown,
+  .nav-group:has(> [aria-expanded='true']) .dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, 0);
+    transition-delay: 0s;
+  }
+  .nav-group:has(> [aria-expanded='true']) .dropdown--end { transform: none; }
+  .dropdown__link {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    text-align: left;
+    border-radius: 6px;
+    transition: background-color var(--dur-fast);
+  }
+  .dropdown__link:hover,
+  .dropdown__link:focus-visible { background: var(--red-50); }
+  .dropdown__link[aria-current='page'] { background: var(--red-50); }
+  .dropdown__link[aria-current='page'] .dropdown__label { color: var(--red-600); }
+  .dropdown__label { font-weight: 700; font-size: var(--fs-sm); color: var(--ink); }
+  .dropdown__desc { font-size: var(--fs-xs); color: var(--ink-soft); }
+  .dropdown__logout .dropdown__label { color: var(--red-700); }
+
+  .account__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem;
+    border-radius: 999px;
+  }
+  .account__avatar {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--white);
+    font-family: var(--font-cond);
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
+    transition: background-color var(--dur-fast);
+  }
+  .account__btn:hover .account__avatar { background: var(--red-600); }
+  .account__info { display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem; padding: 0.7rem 0.9rem 0.9rem; border-bottom: 1px solid var(--line); margin-bottom: 0.4rem; }
+  .account__name { font-weight: 700; line-height: 1.2; }
+  .account__email { font-size: var(--fs-xs); color: var(--ink-soft); word-break: break-all; }
+
+  /* ---- Botón de menú móvil ---- */
+  .menu-toggle {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 50%;
+    transition: border-color var(--dur-fast);
+  }
+  .menu-toggle:hover { border-color: var(--red-600); }
+  .menu-toggle__bars { display: grid; gap: 4px; width: 18px; }
+  .menu-toggle__bars span {
+    display: block;
+    height: 2px;
+    background: var(--ink);
+    border-radius: 2px;
+    transition: transform var(--dur) var(--ease-out), opacity var(--dur-fast);
+  }
+  .menu-toggle[aria-expanded='true'] .menu-toggle__bars span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+  .menu-toggle[aria-expanded='true'] .menu-toggle__bars span:nth-child(2) { opacity: 0; }
+  .menu-toggle[aria-expanded='true'] .menu-toggle__bars span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+  /* ---- Panel móvil ---- */
+  .mobile-menu {
+    position: fixed;
+    inset: calc(var(--header-h) + 4px) 0 0;
+    height: calc(100dvh - var(--header-h) - 4px);
+    background: var(--white);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-top: 1px solid var(--line);
+    animation: menu-in var(--dur) var(--ease-out);
+  }
+  .mobile-menu[hidden] { display: none; }
+  @keyframes menu-in { from { opacity: 0; transform: translateY(-8px); } }
+  .mobile-menu__inner { padding-block: 1.25rem 3rem; }
+  .mobile-account { display: flex; align-items: center; gap: 0.8rem; padding-bottom: 1rem; }
+  .mobile-account__text { display: flex; flex-direction: column; }
+  .mobile-menu__ctas { display: grid; gap: 0.6rem; margin-bottom: 1rem; }
+  .mobile-menu__group { padding-top: 1.1rem; }
+  .mobile-menu__heading {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--red-600);
+  }
+  .mobile-menu__link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    font-family: var(--font-display);
+    font-size: 1.9rem;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink);
+    border-bottom: 1px solid var(--line);
+  }
+  .mobile-menu__link :global(.icon) { color: var(--red-600); transition: transform var(--dur) var(--ease-out); }
+  .mobile-menu__link:hover :global(.icon) { transform: translateX(4px); }
+  .mobile-menu__link[aria-current='page'] { color: var(--red-600); }
+  .mobile-menu__logout { margin-top: 2rem; }
+
+  @media (max-width: 420px) {
+    .site-header__brand :global(.logo__name) { font-size: 0.92rem; }
+  }
+  @media (min-width: 1140px) {
+    .nav-desktop { display: flex; }
+    .menu-toggle, .mobile-menu { display: none !important; }
+  }
+</style>
+
+<script>
+  const header = document.querySelector<HTMLElement>('[data-header]');
+
+  const onScroll = () => header?.toggleAttribute('data-scrolled', window.scrollY > 8);
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+
+  // Desplegables (clic / teclado)
+  const dropdowns = [...document.querySelectorAll<HTMLElement>('[data-dropdown]')];
+  const closeAll = (except?: HTMLElement) =>
+    dropdowns.forEach((d) => {
+      if (d !== except) d.querySelector('[data-dropdown-toggle]')?.setAttribute('aria-expanded', 'false');
+    });
+
+  dropdowns.forEach((dd) => {
+    const toggle = dd.querySelector<HTMLButtonElement>('[data-dropdown-toggle]')!;
+    toggle.addEventListener('click', () => {
+      const open = toggle.getAttribute('aria-expanded') === 'true';
+      closeAll(dd);
+      toggle.setAttribute('aria-expanded', String(!open));
+      if (!open) dd.querySelector<HTMLElement>('.dropdown a, .dropdown button')?.focus({ preventScroll: true });
+    });
+    dd.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.focus();
+      }
+    });
+    dd.addEventListener('focusout', (e) => {
+      if (!dd.contains(e.relatedTarget as Node)) toggle.setAttribute('aria-expanded', 'false');
+    });
+  });
+  document.addEventListener('click', (e) => {
+    if (!(e.target as Element).closest('[data-dropdown]')) closeAll();
+  });
+
+  // Menú móvil
+  const menuToggle = document.querySelector<HTMLButtonElement>('[data-menu-toggle]')!;
+  const menu = document.querySelector<HTMLElement>('[data-mobile-menu]')!;
+  const menuLabel = menuToggle.querySelector('[data-menu-label]')!;
+
+  const setMenu = (open: boolean) => {
+    menuToggle.setAttribute('aria-expanded', String(open));
+    menuLabel.textContent = open ? 'Cerrar menú' : 'Abrir menú';
+    menu.hidden = !open;
+    document.documentElement.style.overflow = open ? 'hidden' : '';
+    if (open) menu.querySelector<HTMLElement>('a, button')?.focus();
+  };
+
+  menuToggle.addEventListener('click', () => setMenu(menuToggle.getAttribute('aria-expanded') !== 'true'));
+  document.addEventListener('keydown', (e) => {
+    if (menu.hidden) return;
+    if (e.key === 'Escape') {
+      setMenu(false);
+      menuToggle.focus();
+    }
+    if (e.key === 'Tab') {
+      const focusables = [menuToggle, ...menu.querySelectorAll<HTMLElement>('a, button')];
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  });
+  window.matchMedia('(min-width: 1140px)').addEventListener('change', (e) => e.matches && setMenu(false));
+</script>

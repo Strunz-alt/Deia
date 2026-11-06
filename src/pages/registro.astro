@@ -1,0 +1,124 @@
+---
+import { z } from 'astro/zod';
+import { eq } from 'drizzle-orm';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import AuthShell from '@/components/AuthShell.astro';
+import Icon from '@/components/Icon.astro';
+import PasswordField from '@/components/forms/PasswordField.astro';
+import { db } from '@/db/client';
+import { usuarios } from '@/db/schema';
+import { createSession, isSecureRequest, safeNext, setSessionCookie } from '@/lib/auth';
+import { setFlash } from '@/lib/flash';
+import { formValues, parseWith, type FieldErrors, type FormValues } from '@/lib/forms';
+import { hashPassword, PASSWORD_MAX, PASSWORD_MIN } from '@/lib/password';
+import { rateLimit } from '@/lib/rate-limit';
+
+const nextParam = Astro.url.searchParams.get('next');
+if (Astro.locals.user) return Astro.redirect(safeNext(nextParam, '/'));
+
+// El registro público sólo crea cuentas de estudiante: el rol no se lee del formulario.
+const schema = z
+  .object({
+    nombre: z.string().trim().min(2, 'Ingresá tu nombre y apellido.').max(80, 'Máximo 80 caracteres.'),
+    email: z.email('Ingresá un correo válido.').trim().toLowerCase().max(160, 'Máximo 160 caracteres.'),
+    password: z
+      .string()
+      .min(PASSWORD_MIN, `La contraseña debe tener al menos ${PASSWORD_MIN} caracteres.`)
+      .max(PASSWORD_MAX, `Máximo ${PASSWORD_MAX} caracteres.`),
+    confirmacion: z.string(),
+  })
+  .refine((d) => d.password === d.confirmacion, { path: ['confirmacion'], message: 'Las contraseñas no coinciden.' });
+
+let errors: FieldErrors = {};
+let values: FormValues = {};
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  values = formValues(form);
+  const next = String(form.get('next') ?? '');
+
+  let ip = 'desconocida';
+  try {
+    ip = Astro.clientAddress;
+  } catch {
+    /* sin dirección disponible */
+  }
+  const limit = rateLimit(`registro:${ip}`, 10, 60 * 60 * 1000);
+
+  const parsed = parseWith(schema, { ...values, email: values.email?.trim() });
+  if (!limit.allowed) {
+    errors = { _form: 'Se crearon demasiadas cuentas desde esta conexión. Probá de nuevo más tarde.' };
+    Astro.response.status = 429;
+  } else if (!parsed.ok) {
+    errors = parsed.errors;
+    Astro.response.status = 400;
+  } else {
+    const { nombre, email, password } = parsed.data;
+    const [existing] = await db.select({ id: usuarios.id }).from(usuarios).where(eq(usuarios.email, email)).limit(1);
+    if (existing) {
+      errors = { email: 'Ya existe una cuenta con ese correo. Ingresá con tu contraseña.' };
+      Astro.response.status = 400;
+    } else {
+      const [created] = await db
+        .insert(usuarios)
+        .values({ nombre, email, passwordHash: await hashPassword(password), rol: 'estudiante' })
+        .returning({ id: usuarios.id });
+      const session = await createSession(created.id);
+      setSessionCookie(Astro.cookies, session.token, session.expiraEn, isSecureRequest(Astro.url, Astro.request.headers));
+      setFlash(Astro.cookies, 'success', `¡Bienvenido/a, ${nombre.split(' ')[0]}! Tu cuenta de estudiante está lista.`);
+      return Astro.redirect(safeNext(next, '/apuntes'), 303);
+    }
+  }
+}
+
+const next = safeNext(nextParam, '');
+const err = (k: string) => errors[k];
+---
+
+<BaseLayout title="Crear cuenta" description="Creá tu cuenta de estudiante para acceder a los materiales de estudio.">
+  <AuthShell
+    eyebrow="Registro de estudiantes"
+    title="Creá tu <span>cuenta</span>"
+    lead="Es gratis y sólo lleva un minuto. Con tu cuenta podés ver y descargar resúmenes, apuntes y modelos de examen."
+  >
+    <ul role="list" class="perks" slot="intro">
+      <li><Icon name="book" size={18} /> Biblioteca por materia y cátedra</li>
+      <li><Icon name="download" size={18} /> Descargas en PDF</li>
+      <li><Icon name="search" size={18} /> Búsqueda y filtros</li>
+    </ul>
+
+    <form method="post" class="auth-form" novalidate>
+      <h2 class="auth-form__title">Registrarme</h2>
+      {
+        err('_form') && (
+          <p class="notice notice--error" role="alert">
+            <Icon name="alert" size={18} /> {err('_form')}
+          </p>
+        )
+      }
+      <input type="hidden" name="next" value={next} />
+      <div class:list={['field', { 'field--invalid': err('nombre') }]}>
+        <label class="field__label" for="f-nombre">Nombre y apellido<span class="req" aria-hidden="true">*</span></label>
+        <input id="f-nombre" name="nombre" class="input" required autocomplete="name" maxlength="80" value={values.nombre ?? ''} aria-invalid={err('nombre') ? 'true' : undefined} aria-describedby={err('nombre') ? 'e-nombre' : undefined} />
+        {err('nombre') && <p class="field__error" id="e-nombre">{err('nombre')}</p>}
+      </div>
+      <div class:list={['field', { 'field--invalid': err('email') }]}>
+        <label class="field__label" for="f-email">Correo electrónico<span class="req" aria-hidden="true">*</span></label>
+        <input id="f-email" name="email" type="email" class="input" required autocomplete="email" maxlength="160" value={values.email ?? ''} aria-invalid={err('email') ? 'true' : undefined} aria-describedby={err('email') ? 'e-email' : undefined} />
+        {err('email') && <p class="field__error" id="e-email">{err('email')}</p>}
+      </div>
+      <PasswordField name="password" label="Contraseña" autocomplete="new-password" minlength={PASSWORD_MIN} hint={`Al menos ${PASSWORD_MIN} caracteres.`} error={err('password')} />
+      <PasswordField name="confirmacion" label="Repetir contraseña" autocomplete="new-password" error={err('confirmacion')} />
+      <button type="submit" class="btn btn--block" data-loading-text="Creando cuenta…">Crear cuenta</button>
+      <p class="auth-form__alt">
+        ¿Ya tenés cuenta? <a href={`/ingresar${next ? `?next=${encodeURIComponent(next)}` : ''}`}>Ingresá</a>
+      </p>
+    </form>
+  </AuthShell>
+</BaseLayout>
+
+<style>
+  .perks { display: grid; gap: 0.6rem; margin-top: 1.75rem; }
+  .perks li { display: flex; align-items: center; gap: 0.6rem; font-weight: 600; font-size: var(--fs-sm); }
+  .perks :global(.icon) { flex: none; }
+</style>

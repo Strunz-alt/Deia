@@ -1,0 +1,161 @@
+---
+import Icon from './Icon.astro';
+import Logo from './Logo.astro';
+import PendingLink from './PendingLink.astro';
+import { contacto, enlacesUtiles, isNavGroup, navDestacado, navegacion, redes, site } from '@/data/site';
+
+const secciones = [navDestacado, ...navegacion.flatMap((e) => (isNavGroup(e) ? e.items : [e]))];
+const anio = new Date().getFullYear();
+---
+
+<footer class="site-footer" id="contacto">
+  <div class="site-footer__band" aria-hidden="true"></div>
+  <div class="container">
+    <div class="site-footer__top">
+      <div class="site-footer__brand">
+        <Logo variant="light" size={64} />
+        <p class="site-footer__lema">{site.lema}</p>
+        <ul role="list" class="socials" aria-label="Redes sociales">
+          {
+            redes.map((r) => (
+              <li>
+                {r.href ? (
+                  <a href={r.href} class="social" target="_blank" rel="noopener noreferrer" aria-label={r.label}>
+                    <Icon name={r.red} />
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    class="social social--pending"
+                    aria-label={`${r.label} (enlace pendiente)`}
+                    data-pending={`El enlace a ${r.label} todavía no está configurado.`}
+                  >
+                    <Icon name={r.red} />
+                  </button>
+                )}
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+
+      <nav class="site-footer__col" aria-label="Secciones del sitio">
+        <h2 class="site-footer__title">Secciones</h2>
+        <ul role="list" class="site-footer__links site-footer__links--cols">
+          {secciones.map((s) => <li><a href={s.href}>{s.label}</a></li>)}
+        </ul>
+      </nav>
+
+      <div class="site-footer__col">
+        <h2 class="site-footer__title">Contacto</h2>
+        <ul role="list" class="site-footer__contact">
+          <li>
+            <Icon name="pin" />
+            {contacto.direccion ?? <span class="tbc">Dirección a confirmar</span>}
+          </li>
+          <li>
+            <Icon name="mail" />
+            {contacto.email ? <a href={`mailto:${contacto.email}`}>{contacto.email}</a> : <span class="tbc">Correo a confirmar</span>}
+          </li>
+          <li>
+            <Icon name="clock" />
+            {contacto.horario ?? <span class="tbc">Horario de atención a confirmar</span>}
+          </li>
+        </ul>
+      </div>
+
+      <div class="site-footer__col">
+        <h2 class="site-footer__title">Enlaces útiles</h2>
+        <ul role="list" class="site-footer__links">
+          {enlacesUtiles.map((l) => <li><PendingLink enlace={l} /></li>)}
+        </ul>
+      </div>
+    </div>
+
+    <div class="site-footer__bottom">
+      <p>© {anio} {site.nombre} · {site.institucion}</p>
+      <p class="site-footer__tag">{site.hashtagInteruca}</p>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    position: relative;
+    background: var(--red-950);
+    color: #e2d1d0;
+    padding-block: clamp(3.5rem, 3rem + 3vw, 5.5rem) 2rem;
+    font-size: var(--fs-sm);
+    overflow: hidden;
+  }
+  /* Franja diagonal roja, recurso de los flyers. */
+  .site-footer__band {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 10px;
+    background: linear-gradient(100deg, var(--red-600) 0 62%, var(--red-800) 62% 64%, var(--navy-700) 64%);
+  }
+  .site-footer__top {
+    display: grid;
+    gap: 2.5rem;
+    padding-bottom: 3rem;
+    border-bottom: 1px solid rgb(255 255 255 / 0.12);
+  }
+  @media (min-width: 720px) { .site-footer__top { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 1080px) { .site-footer__top { grid-template-columns: 1.3fr 1.2fr 1fr 0.9fr; } }
+  .site-footer__lema {
+    margin-top: 1.25rem;
+    font-family: var(--font-display);
+    font-size: 1.9rem;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--white);
+    max-width: 16ch;
+  }
+  .site-footer__title {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #ff8f86;
+    margin-bottom: 1.1rem;
+  }
+  .site-footer__links { display: grid; gap: 0.55rem; }
+  .site-footer__links--cols { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1.5rem; }
+  .site-footer__links :global(a), .site-footer__contact a { color: #f3e7e6; transition: color var(--dur-fast); }
+  .site-footer__links :global(a:hover), .site-footer__contact a:hover { color: #ff8f86; }
+  .site-footer__links :global(.pending-link) { color: #c4a9a7; }
+  .site-footer__contact { display: grid; gap: 0.85rem; }
+  .site-footer__contact li { display: flex; gap: 0.7rem; align-items: flex-start; }
+  .site-footer__contact :global(.icon) { flex: none; color: #ff8f86; margin-top: 2px; }
+  .tbc { color: #c4a9a7; font-style: italic; }
+
+  .socials { display: flex; gap: 0.6rem; margin-top: 1.5rem; }
+  .social {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgb(255 255 255 / 0.25);
+    border-radius: 50%;
+    color: var(--white);
+    transition: background-color var(--dur), color var(--dur), border-color var(--dur), transform var(--dur);
+  }
+  .social:hover { background: var(--red-600); border-color: var(--red-600); transform: translateY(-2px); }
+  .social--pending { border-style: dashed; cursor: help; opacity: 0.8; }
+
+  .site-footer__bottom {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 2rem;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1.75rem;
+    font-size: var(--fs-xs);
+    color: #c4a9a7;
+  }
+  .site-footer__tag { font-family: var(--font-display); font-size: 1.4rem; letter-spacing: 0.04em; color: var(--white); }
+</style>

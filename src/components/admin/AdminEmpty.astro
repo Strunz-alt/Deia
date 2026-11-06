@@ -1,0 +1,20 @@
+---
+import Icon, { type IconName } from '../Icon.astro';
+
+interface Props {
+  icon: IconName;
+  title: string;
+  text?: string;
+  action?: { href: string; label: string };
+}
+
+const { icon, title, text, action } = Astro.props;
+---
+
+<div class="admin-empty">
+  <span class="admin-empty__icon"><Icon name={icon} size={26} /></span>
+  <h2>{title}</h2>
+  {text && <p>{text}</p>}
+  {action && <a href={action.href} class="btn btn--sm"><Icon name="plus" /> {action.label}</a>}
+  <slot />
+</div>

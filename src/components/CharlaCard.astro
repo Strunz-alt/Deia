@@ -1,0 +1,59 @@
+---
+import DateStamp from './DateStamp.astro';
+import Icon from './Icon.astro';
+import Placeholder from './Placeholder.astro';
+import type { Charla } from '@/db/schema';
+import { estadoCharla } from '@/lib/services/charlas';
+
+interface Props {
+  charla: Charla;
+  headingLevel?: 'h2' | 'h3';
+}
+
+const { charla, headingLevel: H = 'h3' } = Astro.props;
+const estado = estadoCharla(charla.fecha);
+---
+
+<article
+  class:list={['card card--interactive charla-card', { 'is-past': estado === 'realizada' }]}
+  data-filter-item
+  data-f-estado={estado}
+  data-f-tipo={charla.tipo}
+  data-search={`${charla.titulo} ${charla.tematica ?? ''} ${charla.tipo} ${charla.lugar} ${charla.oradores.map((o) => o.nombre).join(' ')}`}
+>
+  <div class="charla-card__media">
+    <Placeholder src={charla.imagen} ratio="16 / 8" tone={estado === 'proxima' ? 'red' : 'light'} />
+    <div class="charla-card__stamp"><DateStamp fecha={charla.fecha} /></div>
+  </div>
+  <div class="card__body">
+    <div class="card__meta">
+      {estado === 'proxima' ? <span class="badge badge--live">Próxima</span> : <span class="badge badge--past">Realizada</span>}
+      <span class="badge">{charla.tipo}</span>
+      {charla.tematica && <span class="charla-card__tema">{charla.tematica}</span>}
+    </div>
+    <H class="card__title">
+      <a href={`/charlas/${charla.slug}`} class="card__link">{charla.titulo}</a>
+    </H>
+    {charla.oradores.length > 0 && <p class="charla-card__oradores">{charla.oradores.map((o) => o.nombre).join(' · ')}</p>}
+    <ul role="list" class="charla-card__info">
+      {charla.hora && <li><Icon name="clock" size={16} />{charla.hora} h</li>}
+      <li><Icon name="pin" size={16} />{charla.lugar}</li>
+    </ul>
+    <span class="card__footer link-arrow" aria-hidden="true">Ver detalle <Icon name="arrow" size={16} /></span>
+  </div>
+</article>
+
+<style>
+  .charla-card__media { position: relative; overflow: hidden; }
+  .charla-card__media :global(.ph-img), .charla-card__media :global(.ph) { transition: transform 900ms var(--ease-out); }
+  .charla-card:hover .charla-card__media :global(.ph-img) { transform: scale(1.04); }
+  .charla-card__stamp { position: absolute; left: 1rem; bottom: -1.1rem; z-index: 1; box-shadow: var(--shadow); border-radius: 6px; }
+  .charla-card .card__body { padding-top: 1.9rem; }
+  .charla-card__tema { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--red-600); }
+  .charla-card__oradores { font-size: var(--fs-sm); font-weight: 600; color: var(--ink-soft); }
+  .charla-card__info { display: grid; gap: 0.35rem; font-size: var(--fs-sm); color: var(--ink-soft); }
+  .charla-card__info li { display: flex; gap: 0.5rem; align-items: center; }
+  .charla-card__info :global(.icon) { flex: none; color: var(--red-600); }
+  .charla-card:hover :global(.card__footer) { gap: 0.85rem; }
+  .is-past .card__title { color: var(--ink-soft); }
+</style>

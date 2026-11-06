@@ -1,0 +1,163 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import EmptyState from '@/components/EmptyState.astro';
+import Icon, { type IconName } from '@/components/Icon.astro';
+import PageHero from '@/components/PageHero.astro';
+import PendingLink from '@/components/PendingLink.astro';
+import SampleNotice from '@/components/SampleNotice.astro';
+import SectionHeader from '@/components/SectionHeader.astro';
+import { actividadesConjuntas, convenios, vinculos } from '@/data/institucional';
+import type { TipoInstitucion } from '@/data/types';
+import { formatFecha, porFechaDesc } from '@/lib/format';
+
+const iconos: Record<TipoInstitucion, IconName> = {
+  Universidad: 'landmark',
+  'Colegio profesional': 'book',
+  'Organismo público': 'landmark',
+  'Organización civil': 'handshake',
+  'Estudio jurídico': 'users',
+};
+const actividades = [...actividadesConjuntas].sort(porFechaDesc);
+---
+
+<BaseLayout
+  title="Relaciones Institucionales"
+  description="Vínculos del Centro de Estudiantes de Derecho de la UCA con universidades, instituciones y organizaciones."
+>
+  <PageHero
+    eyebrow="El Centro"
+    title="Relaciones Institucionales"
+    lead="Tendemos puentes con universidades, colegios profesionales, organismos públicos y organizaciones para ampliar las oportunidades de formación y participación de los estudiantes."
+    crumbs={[{ label: 'El Centro' }]}
+  />
+
+  <section class="section section--tight" aria-labelledby="obj-title">
+    <div class="container objetivos">
+      <div data-reveal>
+        <p class="eyebrow">El área</p>
+        <h2 class="h2" id="obj-title">Una Facultad <em>abierta</em> al diálogo</h2>
+      </div>
+      <ul role="list" class="obj-list" data-reveal-stagger>
+        <li><span>01</span><p>Generar convenios que acerquen prácticas, pasantías y beneficios a los estudiantes.</p></li>
+        <li><span>02</span><p>Organizar visitas a tribunales, organismos y estudios para conocer la práctica profesional.</p></li>
+        <li><span>03</span><p>Articular actividades conjuntas con centros de estudiantes de otras universidades.</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section section--sand" aria-labelledby="vin-title">
+    <div class="container">
+      <SectionHeader id="vin-title" eyebrow="Vínculos" title="Instituciones y organizaciones" />
+      <SampleNotice source="src/data/institucional.ts" text="Los vínculos listados son genéricos: se reemplazarán por las instituciones reales con las que trabaja el Centro." />
+      {
+        vinculos.length > 0 ? (
+          <ul role="list" class="grid grid--4" data-reveal-stagger>
+            {vinculos.map((v) => (
+              <li class="card card--interactive vinculo">
+                <div class="vinculo__logo">
+                  {v.logo ? <img src={v.logo.src} alt={v.logo.alt} /> : <Icon name={iconos[v.tipo]} size={34} />}
+                </div>
+                <div class="card__body">
+                  <div class="card__meta">
+                    <span class="badge">{v.tipo}</span>
+                    {v.ejemplo && <span class="badge badge--sample">Ejemplo</span>}
+                  </div>
+                  <h3 class="card__title">{v.nombre}</h3>
+                  <p class="muted vinculo__desc">{v.descripcion}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState icon="landmark" title="Todavía no hay vínculos cargados" />
+        )
+      }
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="conv-title">
+    <div class="container two-col">
+      <div>
+        <SectionHeader id="conv-title" eyebrow="Convenios" title="Convenios vigentes" as="h2" />
+        {
+          convenios.length > 0 ? (
+            <ul role="list" class="convenios" data-reveal-stagger>
+              {convenios.map((c) => (
+                <li class="convenio">
+                  <p class="convenio__meta">{c.contraparte} · {formatFecha(c.fecha, { month: 'long', year: 'numeric' })}</p>
+                  <h3 class="convenio__title">{c.titulo}</h3>
+                  <p class="muted">{c.descripcion}</p>
+                  <PendingLink enlace={c.documento} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div data-reveal>
+              <EmptyState
+                icon="file"
+                title="Aún no hay convenios publicados"
+                text="Cuando se firmen o confirmen convenios, aquí se detallará la institución, el alcance y el documento correspondiente."
+              />
+            </div>
+          )
+        }
+      </div>
+
+      <div>
+        <SectionHeader id="act-title" eyebrow="Agenda institucional" title="Visitas y actividades conjuntas" as="h2" />
+        {
+          actividades.length > 0 ? (
+            <ol role="list" class="timeline" data-reveal-stagger>
+              {actividades.map((a) => (
+                <li class="timeline__item">
+                  <time datetime={a.fecha} class="timeline__date">{formatFecha(a.fecha, { day: 'numeric', month: 'long', year: 'numeric' })}</time>
+                  <div class="timeline__card">
+                    <div class="card__meta">
+                      <span class="badge badge--navy">{a.tipo}</span>
+                      {a.ejemplo && <span class="badge badge--sample">Ejemplo</span>}
+                    </div>
+                    <h3 class="timeline__title">{a.titulo}</h3>
+                    <p class="muted">{a.descripcion}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <EmptyState icon="calendar" title="Sin actividades registradas" />
+          )
+        }
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .objetivos { display: grid; gap: 2.5rem; }
+  @media (min-width: 900px) { .objetivos { grid-template-columns: 1fr 1.3fr; gap: 5rem; align-items: start; } }
+  .obj-list li { display: flex; gap: 1.5rem; padding: 1.4rem 0; border-bottom: 1px solid var(--line); }
+  .obj-list li:first-child { border-top: 1px solid var(--line); }
+  .obj-list span { font-family: var(--font-cond); font-style: italic; font-size: 1.6rem; line-height: 1; color: var(--red-600); }
+  .obj-list p { font-size: var(--fs-md); }
+
+  .vinculo__logo { display: grid; place-items: center; aspect-ratio: 3 / 2; background: var(--white); border-bottom: 1px solid var(--line); color: var(--red-700); transition: color var(--dur), background-color var(--dur); }
+  .vinculo:hover .vinculo__logo { background: var(--red-600); color: var(--red-600); }
+  .vinculo__logo img { max-width: 60%; max-height: 60%; object-fit: contain; }
+  .vinculo .card__title { font-size: 1.3rem; }
+  .vinculo__desc { font-size: var(--fs-sm); }
+
+  .two-col { display: grid; gap: 4rem; }
+  @media (min-width: 1000px) { .two-col { grid-template-columns: 1fr 1fr; gap: 5rem; } }
+
+  .convenio { padding: 1.5rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
+  .convenio + .convenio { margin-top: 1rem; }
+  .convenio__meta { font-size: var(--fs-xs); color: var(--red-600); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+  .convenio__title { font-family: var(--font-cond); font-size: 1.4rem; margin: 0.25rem 0 0.5rem; }
+
+  .timeline { position: relative; display: grid; gap: 1.5rem; padding-left: 1.5rem; border-left: 1px solid var(--line-strong); }
+  .timeline__item { position: relative; }
+  .timeline__item::before { content: ''; position: absolute; left: calc(-1.5rem - 5px); top: 0.4rem; width: 9px; height: 9px; border-radius: 50%; background: var(--red-600); }
+  .timeline__date { font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+  .timeline__card { margin-top: 0.5rem; padding: 1.25rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); transition: box-shadow var(--dur), transform var(--dur) var(--ease-out); }
+  .timeline__card:hover { box-shadow: var(--shadow); transform: translateX(4px); }
+  .timeline__title { font-family: var(--font-cond); font-size: 1.35rem; font-weight: 600; margin: 0.6rem 0 0.35rem; }
+</style>

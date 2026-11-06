@@ -1,0 +1,52 @@
+---
+import Icon from './Icon.astro';
+import Placeholder from './Placeholder.astro';
+import type { Noticia } from '@/db/schema';
+import { formatFecha } from '@/lib/format';
+
+interface Props {
+  noticia: Noticia;
+  featured?: boolean;
+  headingLevel?: 'h2' | 'h3';
+}
+
+const { noticia, featured = false, headingLevel: H = 'h3' } = Astro.props;
+---
+
+<article
+  class:list={['card card--interactive noticia-card', { 'noticia-card--featured': featured }]}
+  data-filter-item
+  data-f-categoria={noticia.categoria}
+  data-search={`${noticia.titulo} ${noticia.resumen} ${noticia.categoria}`}
+>
+  <div class="noticia-card__media">
+    <Placeholder src={noticia.portada} ratio={featured ? '16 / 11' : '16 / 9'} />
+    <span class="noticia-card__cat badge badge--red">{noticia.categoria}</span>
+  </div>
+  <div class="card__body">
+    <time datetime={noticia.fecha} class="noticia-card__date">{formatFecha(noticia.fecha)}</time>
+    <H class="card__title">
+      <a href={`/noticias/${noticia.slug}`} class="card__link">{noticia.titulo}</a>
+    </H>
+    <p class="muted noticia-card__bajada">{noticia.resumen}</p>
+    <span class="card__footer link-arrow" aria-hidden="true">Leer más <Icon name="arrow" size={16} /></span>
+  </div>
+</article>
+
+<style>
+  .noticia-card__media { position: relative; overflow: hidden; }
+  .noticia-card__media :global(.ph-img), .noticia-card__media :global(.ph) { transition: transform 900ms var(--ease-out); }
+  .noticia-card:hover .noticia-card__media :global(.ph-img) { transform: scale(1.04); }
+  .noticia-card__cat { position: absolute; left: 1rem; top: 1rem; }
+  .noticia-card__date { font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }
+  .noticia-card__bajada { font-size: var(--fs-sm); }
+  .noticia-card:hover :global(.card__footer) { gap: 0.85rem; }
+
+  @media (min-width: 900px) {
+    .noticia-card--featured { display: grid; grid-template-columns: 1.15fr 1fr; }
+    .noticia-card--featured .noticia-card__media :global(> .ph-img), .noticia-card--featured .noticia-card__media :global(> .ph) { height: 100%; }
+    .noticia-card--featured .card__body { padding: 2.25rem; justify-content: center; }
+    .noticia-card--featured .card__title { font-size: clamp(1.6rem, 1.2rem + 1vw, 2.2rem); line-height: 1.1; }
+    .noticia-card--featured .noticia-card__bajada { font-size: var(--fs-base); }
+  }
+</style>

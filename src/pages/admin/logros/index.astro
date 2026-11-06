@@ -1,0 +1,121 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import AdminEmpty from '@/components/admin/AdminEmpty.astro';
+import RowAction from '@/components/admin/RowAction.astro';
+import Thumb from '@/components/admin/Thumb.astro';
+import Icon from '@/components/Icon.astro';
+import { logros as tabla } from '@/db/schema';
+import { setFlash } from '@/lib/flash';
+import { formatFecha } from '@/lib/format';
+import { paramId } from '@/lib/forms';
+import { requireAdmin } from '@/lib/guard';
+import { moveOrden } from '@/lib/services/common';
+import { deleteLogro, getLogro, listLogros, toggleDestacadoLogro } from '@/lib/services/logros';
+
+const denied = requireAdmin(Astro);
+if (denied) return denied;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const accion = form.get('_accion');
+  const id = paramId(String(form.get('id') ?? ''));
+  if (id && (accion === 'subir' || accion === 'bajar')) {
+    await moveOrden(tabla, id, accion === 'subir' ? 'up' : 'down');
+    return Astro.redirect(`/admin/logros#l-${id}`, 303);
+  }
+  if (id && accion === 'destacar') {
+    const now = await toggleDestacadoLogro(id);
+    if (now !== null) setFlash(Astro.cookies, 'success', now ? 'El logro ahora está destacado en el inicio.' : 'El logro dejó de estar destacado.');
+    return Astro.redirect(`/admin/logros#l-${id}`, 303);
+  }
+  if (id && accion === 'eliminar') {
+    const l = await getLogro(id);
+    if (l && (await deleteLogro(id))) setFlash(Astro.cookies, 'success', `Se eliminó «${l.titulo}».`);
+  }
+  return Astro.redirect('/admin/logros', 303);
+}
+
+const logros = await listLogros();
+---
+
+<AdminLayout
+  title="Logros"
+  section="logros"
+  description="Iniciativas y resultados del Centro. Los destacados aparecen en la página de inicio; el orden define cómo se presentan."
+>
+  <a href="/admin/logros/nuevo" class="btn btn--sm" slot="actions"><Icon name="plus" /> Nuevo logro</a>
+  {
+    logros.length === 0 ? (
+      <AdminEmpty icon="star" title="Todavía no hay logros" text="Contá lo que el Centro hizo: iniciativas, resultados y su impacto." action={{ href: '/admin/logros/nuevo', label: 'Crear logro' }} />
+    ) : (
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th scope="col">Orden</th>
+              <th scope="col">Logro</th>
+              <th scope="col">Fecha</th>
+              <th scope="col">Destacado</th>
+              <th scope="col"><span class="visually-hidden">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {logros.map((l, i) => (
+              <tr id={`l-${l.id}`}>
+                <td data-label="Orden">
+                  <div class="row-actions" style="justify-content:flex-start">
+                    <RowAction action="subir" id={l.id} icon="arrow-up" label={`Subir «${l.titulo}»`} disabled={i === 0} />
+                    <RowAction action="bajar" id={l.id} icon="arrow-down" label={`Bajar «${l.titulo}»`} disabled={i === logros.length - 1} />
+                  </div>
+                </td>
+                <td>
+                  <a href={`/admin/logros/${l.id}`} class="cell-main">
+                    <Thumb src={l.imagenes[0]?.archivo} icon="star" />
+                    <span>
+                      <strong>{l.titulo}</strong>
+                      <span class="cell-sub">{l.area ?? 'Sin área'} · {l.imagenes.length} {l.imagenes.length === 1 ? 'imagen' : 'imágenes'}</span>
+                    </span>
+                  </a>
+                </td>
+                <td data-label="Fecha">{formatFecha(l.fecha, { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                <td data-label="Destacado">
+                  <form method="post">
+                    <input type="hidden" name="_accion" value="destacar" />
+                    <input type="hidden" name="id" value={l.id} />
+                    <button type="submit" class:list={['star-toggle', { 'is-on': l.destacado }]} aria-pressed={l.destacado ? 'true' : 'false'}>
+                      <Icon name="star" size={16} /> {l.destacado ? 'Destacado' : 'Destacar'}
+                    </button>
+                  </form>
+                </td>
+                <td>
+                  <div class="row-actions">
+                    <a href={`/admin/logros/${l.id}`} class="icon-btn" title="Editar" aria-label={`Editar ${l.titulo}`}><Icon name="edit" size={17} /></a>
+                    <RowAction action="eliminar" id={l.id} icon="trash" danger label={`Eliminar ${l.titulo}`} confirmTitle="¿Eliminar este logro?" confirm={`Se borrarán «${l.titulo}» y sus imágenes.`} />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+</AdminLayout>
+
+<style>
+  .star-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.7rem;
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    color: var(--ink-soft);
+    transition: all var(--dur-fast);
+  }
+  .star-toggle:hover { border-color: var(--gold); color: var(--ink); }
+  .star-toggle.is-on { background: #fbf1dc; border-color: var(--gold); color: #7a5412; }
+  .star-toggle.is-on :global(svg) { fill: var(--gold); }
+</style>

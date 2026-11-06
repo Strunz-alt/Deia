@@ -1,0 +1,70 @@
+---
+/**
+ * Imagen única: muestra la actual, permite reemplazarla (con vista previa
+ * antes de guardar) o quitarla.
+ */
+import Icon from '../Icon.astro';
+import { IMAGE_RULES, mediaUrl } from '@/lib/storage';
+
+interface Props {
+  name: string;
+  label: string;
+  current?: string | null;
+  error?: string;
+  hint?: string;
+  /** Proporción sugerida de la vista previa, p. ej. "1 / 1" o "16 / 9". */
+  ratio?: string;
+}
+
+const { name, label, current, error, hint, ratio = '1 / 1' } = Astro.props;
+const id = `f-${name}`;
+const previewId = `${id}-preview`;
+const url = mediaUrl(current);
+---
+
+<div class:list={['field', 'image-field', { 'field--invalid': error }]} style={`--ratio:${ratio}`}>
+  <span class="field__label" id={`${id}-label`}>{label}</span>
+  <div class="previews" id={previewId}>
+    {
+      url && (
+        <figure class="preview-thumb preview-thumb--current">
+          <img src={url} alt="Imagen actual" />
+          <figcaption>Actual</figcaption>
+        </figure>
+      )
+    }
+  </div>
+  <label class="file-drop">
+    <Icon name="upload" size={22} />
+    <span class="file-drop__text">
+      <strong>{url ? 'Reemplazar imagen' : 'Elegir imagen'}</strong>
+      <span class="field__hint">{hint ?? IMAGE_RULES.label}</span>
+      <span data-file-name></span>
+    </span>
+    <input
+      type="file"
+      id={id}
+      name={name}
+      accept={IMAGE_RULES.accept}
+      data-preview={previewId}
+      data-max-bytes={IMAGE_RULES.maxBytes}
+      data-extensions="jpg,jpeg,png,webp"
+      aria-labelledby={`${id}-label`}
+      aria-describedby={error ? `${id}-error` : undefined}
+    />
+  </label>
+  {
+    url && (
+      <label class="image-field__remove">
+        <input type="checkbox" name={`${name}_quitar`} /> Quitar la imagen actual (sin reemplazarla)
+      </label>
+    )
+  }
+  {error && <p class="field__error" id={`${id}-error`}>{error}</p>}
+</div>
+
+<style>
+  .image-field :global(.preview-thumb) { width: 160px; aspect-ratio: var(--ratio); }
+  .image-field__remove { display: inline-flex; gap: 0.5rem; align-items: center; font-size: var(--fs-sm); color: var(--red-700); cursor: pointer; }
+  .image-field__remove input { accent-color: var(--red-600); width: 18px; height: 18px; }
+</style>

@@ -1,0 +1,422 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import CharlaCard from '@/components/CharlaCard.astro';
+import EmptyState from '@/components/EmptyState.astro';
+import Icon, { type IconName } from '@/components/Icon.astro';
+import NoticiaCard from '@/components/NoticiaCard.astro';
+import Placeholder from '@/components/Placeholder.astro';
+import SectionHeader from '@/components/SectionHeader.astro';
+import { site } from '@/data/site';
+import { formatFecha } from '@/lib/format';
+import { listProximasCharlas } from '@/lib/services/charlas';
+import { resumenInteruca } from '@/lib/services/interuca';
+import { listLogrosDestacados } from '@/lib/services/logros';
+import { listMaterias } from '@/lib/services/materias';
+import { listNoticiasPublicadas } from '@/lib/services/noticias';
+
+const [proximas, ultimas, logros, materias, interuca] = await Promise.all([
+  listProximasCharlas(3),
+  listNoticiasPublicadas(3),
+  listLogrosDestacados(3),
+  listMaterias(),
+  resumenInteruca(),
+]);
+const destacada = proximas[0];
+const totalMateriales = materias.reduce((n, m) => n + Number(m.materiales), 0);
+const materiasConContenido = materias.filter((m) => Number(m.materiales) > 0).slice(0, 8);
+
+const areas: { titulo: string; texto: string; href: string; icon: IconName }[] = [
+  { titulo: 'Charlas', texto: 'Jornadas y encuentros con especialistas y graduados.', href: '/charlas', icon: 'mic' },
+  { titulo: 'Resúmenes', texto: 'Apuntes y materiales por materia y cátedra.', href: '/apuntes', icon: 'book' },
+  { titulo: 'Acción Social', texto: 'Voluntariados, colectas y proyectos con la comunidad.', href: '/accion-social', icon: 'heart' },
+  { titulo: 'Deportes', texto: 'Disciplinas, entrenamientos y el camino a las INTERUCA.', href: '/deportes', icon: 'ball' },
+  { titulo: 'Institucional', texto: 'Vínculos con universidades y organizaciones.', href: '/relaciones-institucionales', icon: 'landmark' },
+  { titulo: 'El Centro', texto: 'Quiénes somos y qué logramos juntos.', href: '/miembros', icon: 'users' },
+];
+---
+
+<BaseLayout description={site.descripcion}>
+  <!-- ============ HERO ============ -->
+  <section class="hero">
+    <div class="hero__bg" aria-hidden="true"><span class="hero__band"></span><span class="hero__band hero__band--2"></span></div>
+    <div class="container hero__inner">
+      <div class="hero__text">
+        <p class="eyebrow hero__eyebrow" data-reveal>Facultad de Derecho · UCA</p>
+        <h1 class="display hero__title" data-reveal style="--reveal-i:1">
+          <span class="hero__line">Centro de</span>
+          <span class="hero__line">Estudiantes</span>
+          <span class="hero__line"><span class="hero__chip">de Derecho</span></span>
+        </h1>
+        <p class="hero__lead" data-reveal style="--reveal-i:2">
+          Un espacio de estudiantes para estudiantes: acompañamos la vida académica, impulsamos iniciativas solidarias y
+          construimos comunidad dentro y fuera de las aulas.
+        </p>
+        <div class="hero__actions" data-reveal style="--reveal-i:3">
+          <a href="/apuntes" class="btn btn--white"><Icon name="book" />Resúmenes y apuntes</a>
+          <a href="/charlas" class="btn btn--light">Próximas charlas <Icon name="arrow" class="icon-arrow" /></a>
+        </div>
+      </div>
+
+      <div class="hero__visual" data-reveal style="--reveal-i:2">
+        <img src="/brand/logo-ced.webp" alt="Escudo del Centro de Estudiantes de Derecho de la Universidad Católica Argentina" width="360" height="360" class="hero__seal" />
+        {
+          destacada && (
+            <a href={`/charlas/${destacada.slug}`} class="next">
+              <span class="next__label">Próxima actividad</span>
+              <span class="next__title">{destacada.titulo}</span>
+              <span class="next__meta">
+                <span><Icon name="calendar" size={15} /> <span class="next__date">{formatFecha(destacada.fecha, { weekday: 'long', day: 'numeric', month: 'long' })}</span></span>
+                <span><Icon name="pin" size={15} /> {destacada.lugar}</span>
+              </span>
+            </a>
+          )
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ÁREAS ============ -->
+  <section class="section section--tight areas-section" aria-labelledby="areas-title">
+    <div class="container">
+      <h2 class="visually-hidden" id="areas-title">Áreas del Centro</h2>
+      <ul role="list" class="areas" data-reveal-stagger>
+        {
+          areas.map((a) => (
+            <li>
+              <a href={a.href} class="area">
+                <span class="area__icon"><Icon name={a.icon} size={26} /></span>
+                <span class="area__title">{a.titulo}</span>
+                <span class="area__text">{a.texto}</span>
+                <span class="area__arrow"><Icon name="arrow" size={18} /></span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ APUNTES ============ -->
+  <section class="section section--tight" aria-labelledby="apuntes-title">
+    <div class="container">
+      <div class="apuntes-band" data-reveal>
+        <div class="apuntes-band__text">
+          <p class="eyebrow">Biblioteca del Centro</p>
+          <h2 class="h2" id="apuntes-title">Resúmenes y apuntes <span class="ribbon">para estudiar mejor</span></h2>
+          <p class="lead">
+            {totalMateriales > 0
+              ? `${totalMateriales} ${totalMateriales === 1 ? 'material' : 'materiales'} en ${materias.length} ${materias.length === 1 ? 'materia' : 'materias'}, organizados por cátedra y año.`
+              : 'Material de estudio organizado por materia, cátedra y año de la carrera.'}
+            {!Astro.locals.user && ' Ingresá con tu cuenta de estudiante para verlos y descargarlos.'}
+          </p>
+        </div>
+        <div class="apuntes-band__search">
+          <form action="/apuntes" method="get" class="quick-search" role="search">
+            <label for="home-q" class="visually-hidden">Buscar apuntes</label>
+            <Icon name="search" size={20} />
+            <input id="home-q" name="q" type="search" placeholder="Ej.: obligaciones, teoría del delito…" autocomplete="off" />
+            <button class="btn btn--sm" type="submit">Buscar</button>
+          </form>
+          {
+            materiasConContenido.length > 0 && (
+              <>
+                <p class="apuntes-band__label">Materias</p>
+                <ul role="list" class="chips">
+                  {materiasConContenido.map((m) => (
+                    <li>
+                      <a class="chip chip--dark" href={`/apuntes?materia=${m.id}`}>
+                        {m.nombre}
+                      </a>
+                    </li>
+                  ))}
+                  <li><a class="chip chip--dark chip--more" href="/apuntes">Ver todas <Icon name="arrow" size={14} /></a></li>
+                </ul>
+              </>
+            )
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PRÓXIMAS CHARLAS ============ -->
+  <section class="section" aria-labelledby="agenda-title">
+    <div class="container">
+      <SectionHeader id="agenda-title" eyebrow="Agenda" title="Próximas charlas" link={{ label: 'Ver todas las charlas', href: '/charlas' }} />
+      {
+        proximas.length > 0 ? (
+          <div class="grid grid--3" data-reveal-stagger>
+            {proximas.map((c) => (
+              <CharlaCard charla={c} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState icon="calendar" title="Sin charlas programadas" text="Pronto vamos a anunciar nuevas charlas y encuentros. Seguinos en redes para enterarte primero." />
+        )
+      }
+    </div>
+  </section>
+
+  <!-- ============ NOVEDADES ============ -->
+  <section class="section section--sand" aria-labelledby="novedades-title">
+    <div class="container">
+      <SectionHeader id="novedades-title" eyebrow="Novedades" title="Últimas noticias" link={{ label: 'Ver todas las noticias', href: '/noticias' }} />
+      {
+        ultimas.length > 0 ? (
+          <div class="news-layout" data-reveal-stagger>
+            {ultimas.map((n, i) => (
+              <NoticiaCard noticia={n} featured={i === 0} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState icon="news" title="Todavía no hay noticias" text="Las novedades del Centro se publicarán acá." />
+        )
+      }
+    </div>
+  </section>
+
+  <!-- ============ LOGROS + INTERUCA ============ -->
+  <section class="section section--dark" aria-labelledby="logros-title">
+    <div class="container">
+      <SectionHeader
+        id="logros-title"
+        eyebrow="Iniciativas destacadas"
+        title="Lo que <span class='ribbon'>construimos</span> juntos"
+        link={{ label: 'Ver todos los logros', href: '/logros' }}
+      />
+      {
+        logros.length > 0 ? (
+          <ul role="list" class="logros-home" data-reveal-stagger>
+            {logros.map((l) => (
+              <li class="logro-tile">
+                <Placeholder src={l.imagenes[0]?.archivo} alt="" ratio="4 / 3" tone="dark" />
+                <div class="logro-tile__body">
+                  <p class="logro-tile__meta">{formatFecha(l.fecha, { month: 'long', year: 'numeric' })}{l.area && ` · ${l.area}`}</p>
+                  <h3 class="logro-tile__title">{l.titulo}</h3>
+                  <p class="logro-tile__text">{l.descripcion.split(/\n\s*\n/)[0].slice(0, 180)}{l.descripcion.length > 180 ? '…' : ''}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState icon="star" title="Pronto vas a ver nuestros logros" text="Estamos cargando las iniciativas y resultados del Centro." />
+        )
+      }
+
+      <a href="/deportes/interuca" class="interuca-teaser" data-reveal>
+        <span class="interuca-teaser__icon"><Icon name="trophy" size={34} /></span>
+        <span class="interuca-teaser__text">
+          <span class="interuca-teaser__kicker">Historial deportivo · {site.hashtagInteruca}</span>
+          <span class="interuca-teaser__title">INTERUCA</span>
+        </span>
+        {
+          interuca.participaciones > 0 && (
+            <span class="interuca-teaser__stats">
+              <span><strong>{interuca.campeonatos}</strong> {interuca.campeonatos === 1 ? 'campeonato' : 'campeonatos'}</span>
+              <span><strong>{interuca.ediciones}</strong> {interuca.ediciones === 1 ? 'edición' : 'ediciones'}</span>
+            </span>
+          )
+        }
+        <span class="interuca-teaser__cta">Ver historial <Icon name="arrow" size={18} /></span>
+      </a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  /* ---------- Hero ---------- */
+  .hero {
+    position: relative;
+    overflow: hidden;
+    background: var(--red-600);
+    color: var(--white);
+    padding-block: clamp(3rem, 2rem + 5vw, 6.5rem);
+  }
+  .hero__bg { position: absolute; inset: 0; pointer-events: none; }
+  .hero__band {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: -12%;
+    width: 58%;
+    background: linear-gradient(180deg, var(--red-800), var(--red-900));
+    transform: skewX(-18deg);
+    transform-origin: bottom;
+  }
+  .hero__band--2 { right: 38%; width: 5%; background: rgb(0 0 0 / 0.12); }
+  .hero__inner { position: relative; display: grid; gap: 3rem; align-items: center; }
+  @media (min-width: 960px) {
+    .hero__inner { grid-template-columns: 1.35fr 1fr; gap: 3rem; }
+  }
+  .hero__eyebrow { color: #ffe1dd; }
+  .hero__title { margin-top: 1.1rem; display: flex; flex-direction: column; font-size: clamp(3.6rem, 2rem + 7vw, 8rem); line-height: 0.86; }
+  .hero__chip {
+    display: inline-block;
+    margin-top: 0.08em;
+    padding: 0.04em 0.18em 0;
+    background: var(--white);
+    color: var(--red-600);
+  }
+  .hero__lead { margin-top: 1.5rem; max-width: 52ch; font-size: var(--fs-md); color: #fbe3e0; }
+  .hero__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2rem; }
+
+  .hero__visual { position: relative; display: grid; justify-items: center; gap: 1.5rem; }
+  .hero__seal {
+    width: clamp(200px, 26vw, 340px);
+    height: auto;
+    border-radius: 50%;
+    box-shadow: 0 30px 60px -20px rgb(0 0 0 / 0.55), 0 0 0 10px rgb(255 255 255 / 0.08);
+    animation: seal-in 1.1s var(--ease-out) both;
+  }
+  @keyframes seal-in { from { transform: rotate(-25deg) scale(0.85); opacity: 0; } }
+  @media (prefers-reduced-motion: no-preference) {
+    .hero__seal { animation: seal-in 1.1s var(--ease-out) both, float 7s ease-in-out 1.2s infinite; }
+    @keyframes float { 50% { transform: translateY(-8px) rotate(2deg); } }
+  }
+
+  .next {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    width: min(100%, 380px);
+    padding: 1.1rem 1.25rem;
+    background: var(--white);
+    color: var(--ink);
+    border-left: 6px solid var(--red-600);
+    border-radius: 6px;
+    box-shadow: var(--shadow-lg);
+    transition: transform var(--dur) var(--ease-out);
+  }
+  .next:hover { transform: translateY(-3px); }
+  .next__label { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: var(--red-600); }
+  .next__title { font-family: var(--font-cond); font-size: 1.3rem; font-weight: 600; line-height: 1.15; text-transform: uppercase; }
+  .next__meta { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; font-size: var(--fs-xs); font-weight: 600; color: var(--ink-soft); }
+  .next__meta > span { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .next__meta :global(.icon) { color: var(--red-600); }
+  .next__date { display: inline-block; }
+  .next__date::first-letter { text-transform: uppercase; }
+
+  /* ---------- Áreas ---------- */
+  .areas-section { padding-top: 0; margin-top: -2.5rem; position: relative; }
+  .areas { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 175px), 1fr)); }
+  .area {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    height: 100%;
+    padding: 1.3rem 1.2rem 1.1rem;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-bottom: 4px solid var(--red-600);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    isolation: isolate;
+    transition: color var(--dur), transform var(--dur) var(--ease-out), box-shadow var(--dur);
+  }
+  .area::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--red-600);
+    clip-path: inset(100% 0 0 0);
+    transition: clip-path 420ms var(--ease-out);
+  }
+  .area:hover, .area:focus-visible { color: var(--white); transform: translateY(-4px); box-shadow: var(--shadow); }
+  .area:hover::before, .area:focus-visible::before { clip-path: inset(0 0 0 0); }
+  .area__icon { color: var(--red-600); transition: color var(--dur), transform var(--dur) var(--ease-out); }
+  .area__title { margin-top: 0.4rem; font-family: var(--font-display); font-size: 1.7rem; line-height: 1; letter-spacing: 0.02em; text-transform: uppercase; }
+  .area__text { font-size: var(--fs-xs); color: var(--ink-soft); line-height: 1.5; transition: color var(--dur); }
+  .area__arrow { margin-top: auto; padding-top: 0.5rem; color: var(--red-600); transition: transform var(--dur) var(--ease-out), color var(--dur); }
+  .area:hover :is(.area__icon, .area__arrow), .area:focus-visible :is(.area__icon, .area__arrow) { color: var(--white); }
+  .area:hover .area__text, .area:focus-visible .area__text { color: #fbe3e0; }
+  .area:hover .area__arrow { transform: translateX(6px); }
+  .area:hover .area__icon { transform: rotate(-8deg) scale(1.08); }
+
+  /* ---------- Banda de apuntes ---------- */
+  .apuntes-band {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2rem;
+    padding: clamp(2rem, 1.25rem + 3vw, 3.5rem);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background:
+      linear-gradient(115deg, transparent 0 62%, rgb(171 23 23 / 0.45) 62% 70%, transparent 70%),
+      var(--red-950);
+    color: var(--white);
+    --color-muted: #e2cfcd;
+    --color-accent-text: #ff8f86;
+  }
+  @media (min-width: 960px) {
+    .apuntes-band { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); align-items: center; gap: 3.5rem; }
+  }
+  .apuntes-band__text > * + * { margin-top: 1rem; }
+  .quick-search {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.4rem 0.4rem 0.4rem 1rem;
+    border-radius: 999px;
+    background: var(--white);
+    color: var(--ink-soft);
+    transition: box-shadow var(--dur);
+  }
+  .quick-search:focus-within { box-shadow: 0 0 0 4px rgb(255 143 134 / 0.5); }
+  .quick-search input { flex: 1; min-width: 0; border: 0; background: none; padding: 0.55rem 0; color: var(--ink); }
+  .quick-search input:focus { outline: none; }
+  .apuntes-band__label { margin: 1.5rem 0 0.75rem; font-size: var(--fs-xs); letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700; color: #ff8f86; }
+  .chip--dark { display: inline-flex; align-items: center; gap: 0.35rem; background: transparent; color: var(--white); border-color: rgb(255 255 255 / 0.3); }
+  .chip--dark:hover { background: var(--white); color: var(--red-700); border-color: var(--white); }
+  .chip--more { border-style: dashed; }
+
+  /* ---------- Noticias ---------- */
+  .news-layout { display: grid; gap: clamp(1rem, 0.6rem + 1.5vw, 1.75rem); }
+  @media (min-width: 700px) {
+    .news-layout { grid-template-columns: 1fr 1fr; }
+    .news-layout > :global(:first-child) { grid-column: 1 / -1; }
+  }
+
+  /* ---------- Logros ---------- */
+  .logros-home { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+  .logro-tile {
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: rgb(255 255 255 / 0.04);
+    border: 1px solid rgb(255 255 255 / 0.1);
+    transition: transform var(--dur) var(--ease-out), border-color var(--dur);
+  }
+  .logro-tile:hover { transform: translateY(-4px); border-color: rgb(255 143 134 / 0.5); }
+  .logro-tile__body { display: flex; flex-direction: column; gap: 0.4rem; padding: 1.25rem; }
+  .logro-tile__meta { font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #ff8f86; }
+  .logro-tile__title { font-family: var(--font-display); font-size: 1.9rem; font-weight: 400; line-height: 0.95; letter-spacing: 0.02em; text-transform: uppercase; }
+  .logro-tile__text { font-size: var(--fs-sm); color: #d9c7c6; }
+
+  .interuca-teaser {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1.25rem 2rem;
+    margin-top: 3rem;
+    padding: 1.6rem 2rem;
+    border-radius: var(--radius-lg);
+    background:
+      linear-gradient(110deg, var(--navy-700) 0 55%, var(--red-600) 55% 57%, var(--navy-800) 57%);
+    color: var(--white);
+    transition: transform var(--dur) var(--ease-out), box-shadow var(--dur);
+  }
+  .interuca-teaser:hover { transform: translateY(-3px); box-shadow: 0 20px 40px -20px rgb(0 0 0 / 0.7); }
+  .interuca-teaser__icon { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--white); color: var(--navy-700); }
+  .interuca-teaser__text { display: flex; flex-direction: column; flex: 1 1 220px; }
+  .interuca-teaser__kicker { font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #c8d3ee; }
+  .interuca-teaser__title { font-family: var(--font-display); font-size: clamp(2.8rem, 2rem + 2.5vw, 4rem); line-height: 0.9; letter-spacing: 0.02em; }
+  .interuca-teaser__stats { display: flex; gap: 1.5rem; font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+  .interuca-teaser__stats strong { display: block; font-family: var(--font-display); font-size: 2.4rem; font-weight: 400; line-height: 1; letter-spacing: 0; }
+  .interuca-teaser__cta { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 800; font-size: var(--fs-xs); letter-spacing: 0.12em; text-transform: uppercase; transition: gap var(--dur) var(--ease-out); }
+  .interuca-teaser:hover .interuca-teaser__cta { gap: 0.9rem; }
+</style>

@@ -1,0 +1,256 @@
+---
+/**
+ * Alta y edición de una materia (`/admin/materias/nueva` o `/admin/materias/<id>`),
+ * con la gestión de sus cátedras.
+ */
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import Icon from '@/components/Icon.astro';
+import ErrorSummary from '@/components/forms/ErrorSummary.astro';
+import Field from '@/components/forms/Field.astro';
+import ImageField from '@/components/forms/ImageField.astro';
+import SelectField from '@/components/forms/SelectField.astro';
+import { setFlash } from '@/lib/flash';
+import { paramId, type FieldErrors, type FormValues } from '@/lib/forms';
+import { requireAdmin } from '@/lib/guard';
+import {
+  deleteMateria,
+  getMateria,
+  listCatedras,
+  materiaRelations,
+  saveCatedra,
+  saveMateria,
+} from '@/lib/services/materias';
+
+const denied = requireAdmin(Astro);
+if (denied) return denied;
+
+const isNew = Astro.params.id === 'nueva';
+const id = isNew ? null : paramId(Astro.params.id);
+if (!isNew && !id) return Astro.redirect('/admin/materias');
+let materia = id ? await getMateria(id) : null;
+if (!isNew && !materia) {
+  setFlash(Astro.cookies, 'error', 'La materia no existe o ya fue eliminada.');
+  return Astro.redirect('/admin/materias');
+}
+
+let errors: FieldErrors = {};
+let values: FormValues = materia
+  ? { nombre: materia.nombre, anio: materia.anio ? String(materia.anio) : '', descripcion: materia.descripcion ?? '' }
+  : {};
+let catErrors: FieldErrors = {};
+let catValues: FormValues = {};
+const editCatId = paramId(Astro.url.searchParams.get('catedra') ?? undefined);
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const accion = String(form.get('_accion') ?? 'guardar');
+
+  if (accion === 'guardar') {
+    const result = await saveMateria(form, materia);
+    if (result.ok) {
+      setFlash(Astro.cookies, 'success', result.message);
+      return Astro.redirect(`/admin/materias/${result.id}`, 303);
+    }
+    errors = result.errors;
+    values = result.values;
+    Astro.response.status = 400;
+  } else if (accion === 'catedra' && materia) {
+    const fd = new FormData();
+    fd.set('nombre', String(form.get('catedra_nombre') ?? ''));
+    fd.set('detalle', String(form.get('catedra_detalle') ?? ''));
+    const catId = paramId(String(form.get('catedra_id') ?? ''));
+    const result = await saveCatedra(fd, materia.id, catId);
+    if (result.ok) {
+      setFlash(Astro.cookies, 'success', result.message);
+      return Astro.redirect(`/admin/materias/${materia.id}#catedras`, 303);
+    }
+    catErrors = result.errors;
+    catValues = { ...result.values, id: catId ? String(catId) : '' };
+    Astro.response.status = 400;
+  } else if (accion === 'eliminar' && materia) {
+    const rel = await materiaRelations(materia.id);
+    if (rel.catedras + rel.materiales > 0) {
+      return Astro.redirect(`/admin/materias/${materia.id}/eliminar`, 303);
+    }
+    await deleteMateria(materia.id, 'eliminar');
+    setFlash(Astro.cookies, 'success', `Se eliminó la materia «${materia.nombre}».`);
+    return Astro.redirect('/admin/materias', 303);
+  }
+}
+
+const catedras = materia ? await listCatedras(materia.id) : [];
+const editing = editCatId ? catedras.find((c) => c.id === editCatId) : undefined;
+if (editing && !catValues.nombre) catValues = { nombre: editing.nombre, detalle: editing.detalle ?? '', id: String(editing.id) };
+const rel = materia ? await materiaRelations(materia.id) : null;
+const anios = [1, 2, 3, 4, 5, 6].map((a) => ({ value: a, label: `${a}.º año` }));
+---
+
+<AdminLayout
+  title={materia ? materia.nombre : 'Nueva materia'}
+  section="materias"
+  back={{ href: '/admin/materias', label: 'Materias y cátedras' }}
+>
+  {
+    materia && (
+      <a href={`/admin/materiales/nuevo?materia=${materia.id}`} class="btn btn--sm btn--outline" slot="actions">
+        <Icon name="upload" /> Subir material
+      </a>
+    )
+  }
+
+  <div class="form-layout">
+    <div class="form-layout__main">
+      <form method="post" enctype="multipart/form-data" class="panel" novalidate>
+        <h2 class="panel__title"><Icon name="book" size={18} /> Datos de la materia</h2>
+        <ErrorSummary errors={errors} />
+        <input type="hidden" name="_accion" value="guardar" />
+        <div class="form-grid form-grid--3">
+          <Field name="nombre" label="Nombre" value={values.nombre} error={errors.nombre} required maxlength={120} class="span-2" />
+          <SelectField name="anio" label="Año de la carrera" options={anios} value={values.anio} error={errors.anio} placeholder="Sin especificar" />
+          <Field
+            name="descripcion"
+            label="Descripción"
+            type="textarea"
+            rows={3}
+            value={values.descripcion}
+            error={errors.descripcion}
+            maxlength={600}
+            hint="Opcional. Se muestra en la biblioteca de apuntes."
+            class="span-all"
+          />
+          <div class="span-all">
+            <ImageField name="imagen" label="Imagen de la materia" current={materia?.imagen} error={errors.imagen} ratio="4 / 3" />
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn" data-loading-text="Guardando…"><Icon name="check" /> {materia ? 'Guardar cambios' : 'Crear materia'}</button>
+          <a href="/admin/materias" class="btn btn--outline">Cancelar</a>
+        </div>
+      </form>
+
+      {
+        materia && (
+          <section class="panel" id="catedras" aria-labelledby="catedras-title">
+            <h2 class="panel__title" id="catedras-title">
+              <Icon name="layers" size={18} /> Cátedras de {materia.nombre}
+            </h2>
+            <p class="panel__desc">Los materiales pueden asociarse a una cátedra o quedar como generales de la materia.</p>
+
+            {catedras.length > 0 ? (
+              <div class="table-wrap">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Cátedra</th>
+                      <th scope="col" class="num">Materiales</th>
+                      <th scope="col"><span class="visually-hidden">Acciones</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {catedras.map((c) => (
+                      <tr>
+                        <td>
+                          <strong>{c.nombre}</strong>
+                          {c.detalle && <span class="cell-sub">{c.detalle}</span>}
+                        </td>
+                        <td data-label="Materiales" class="num">
+                          <a class="link-arrow" href={`/admin/materiales?materia=${materia.id}&catedra=${c.id}`}>{c.materiales}</a>
+                        </td>
+                        <td>
+                          <div class="row-actions">
+                            <a href={`?catedra=${c.id}#catedra-form`} class="icon-btn" title="Editar" aria-label={`Editar ${c.nombre}`}>
+                              <Icon name="edit" size={17} />
+                            </a>
+                            <a href={`/admin/catedras/${c.id}/eliminar`} class="icon-btn icon-btn--danger" title="Eliminar" aria-label={`Eliminar ${c.nombre}`}>
+                              <Icon name="trash" size={17} />
+                            </a>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p class="muted">Esta materia todavía no tiene cátedras.</p>
+            )}
+
+            <form method="post" class="cat-form" id="catedra-form" novalidate>
+              <h3 class="cat-form__title">{catValues.id ? 'Editar cátedra' : 'Agregar cátedra'}</h3>
+              <input type="hidden" name="_accion" value="catedra" />
+              <input type="hidden" name="catedra_id" value={catValues.id ?? ''} />
+              <div class="form-grid form-grid--2">
+                <div class:list={['field', { 'field--invalid': catErrors.nombre }]}>
+                  <label class="field__label" for="f-catedra_nombre">Nombre<span class="req" aria-hidden="true">*</span></label>
+                  <input id="f-catedra_nombre" name="catedra_nombre" class="input" required maxlength="120" value={catValues.nombre ?? ''} placeholder="Ej.: Cátedra A" />
+                  {catErrors.nombre && <p class="field__error">{catErrors.nombre}</p>}
+                </div>
+                <div class:list={['field', { 'field--invalid': catErrors.detalle }]}>
+                  <label class="field__label" for="f-catedra_detalle">Docentes o referencia</label>
+                  <input id="f-catedra_detalle" name="catedra_detalle" class="input" maxlength="200" value={catValues.detalle ?? ''} placeholder="Opcional" />
+                  {catErrors.detalle && <p class="field__error">{catErrors.detalle}</p>}
+                </div>
+              </div>
+              <div class="cat-form__actions">
+                <button type="submit" class="btn btn--sm btn--dark" data-loading-text="Guardando…">
+                  <Icon name={catValues.id ? 'check' : 'plus'} /> {catValues.id ? 'Guardar cátedra' : 'Agregar cátedra'}
+                </button>
+                {catValues.id && <a href={`/admin/materias/${materia.id}#catedras`} class="btn btn--sm btn--outline">Cancelar edición</a>}
+              </div>
+            </form>
+          </section>
+        )
+      }
+    </div>
+
+    {
+      materia && rel && (
+        <aside class="form-layout__side">
+          <section class="panel">
+            <h2 class="panel__title"><Icon name="info" size={18} /> Resumen</h2>
+            <dl class="summary">
+              <div><dt>Cátedras</dt><dd>{rel.catedras}</dd></div>
+              <div><dt>Materiales</dt><dd>{rel.materiales}</dd></div>
+            </dl>
+            <a href={`/admin/materiales?materia=${materia.id}`} class="link-arrow">Ver materiales <Icon name="arrow" size={14} /></a>
+          </section>
+          <section class="panel danger-zone">
+            <h2 class="panel__title"><Icon name="trash" size={18} /> Eliminar materia</h2>
+            {rel.catedras + rel.materiales > 0 ? (
+              <>
+                <p class="muted" style="font-size:var(--fs-sm);margin-bottom:1rem">
+                  Tiene {rel.catedras} {rel.catedras === 1 ? 'cátedra' : 'cátedras'} y {rel.materiales} {rel.materiales === 1 ? 'material' : 'materiales'}. Antes de eliminarla vas a
+                  elegir qué hacer con ellos.
+                </p>
+                <a href={`/admin/materias/${materia.id}/eliminar`} class="btn btn--sm btn--danger btn--block">Revisar y eliminar</a>
+              </>
+            ) : (
+              <form method="post">
+                <input type="hidden" name="_accion" value="eliminar" />
+                <p class="muted" style="font-size:var(--fs-sm);margin-bottom:1rem">No tiene cátedras ni materiales asociados.</p>
+                <button
+                  type="submit"
+                  class="btn btn--sm btn--danger btn--block"
+                  data-confirm={`Se eliminará «${materia.nombre}» y su imagen. Esta acción no se puede deshacer.`}
+                  data-confirm-title="¿Eliminar la materia?"
+                >
+                  Eliminar materia
+                </button>
+              </form>
+            )}
+          </section>
+        </aside>
+      )
+    }
+  </div>
+</AdminLayout>
+
+<style>
+  .cat-form { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px dashed var(--line-strong); }
+  .cat-form__title { font-weight: 700; margin-bottom: 0.9rem; }
+  .cat-form__actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; }
+  .summary { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
+  .summary div { padding: 0.75rem; border-radius: var(--radius); background: var(--sand); }
+  .summary dt { font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); }
+  .summary dd { font-family: var(--font-display); font-size: 2rem; line-height: 1; }
+</style>

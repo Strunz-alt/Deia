@@ -1,0 +1,290 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import EmptyState from '@/components/EmptyState.astro';
+import Icon from '@/components/Icon.astro';
+import Placeholder from '@/components/Placeholder.astro';
+import { site } from '@/data/site';
+import { listInteruca, RESULTADO_LABEL, resumenInteruca } from '@/lib/services/interuca';
+import { parrafos } from '@/lib/services/noticias';
+import { mediaUrl } from '@/lib/storage';
+
+const [participaciones, resumen] = await Promise.all([listInteruca(), resumenInteruca()]);
+const anios = [...new Set(participaciones.map((p) => p.anio))];
+const disciplinas = [...new Set(participaciones.map((p) => p.disciplina))].sort((a, b) => a.localeCompare(b, 'es'));
+const destacados = participaciones.filter((p) => p.resultado === 'campeon' || p.destacado);
+---
+
+<BaseLayout
+  title="Historial INTERUCA"
+  description="Historial de participaciones y victorias de Derecho en las INTERUCA, por año y disciplina."
+  bodyClass="theme-sport"
+>
+  <section class="iu-hero">
+    <div class="iu-hero__bg" aria-hidden="true">
+      <span class="iu-hero__band"></span>
+      <span class="iu-hero__word">INTERUCA</span>
+    </div>
+    <div class="container">
+      <nav aria-label="Migas de pan" class="iu-crumbs">
+        <a href="/">Inicio</a> / <a href="/deportes">Deportes</a> / <span aria-current="page">Historial INTERUCA</span>
+      </nav>
+      <div class="iu-hero__main">
+        <div data-reveal>
+          <p class="iu-kicker"><Icon name="trophy" size={18} /> Historial de victorias</p>
+          <h1 class="iu-title">INTER<span>UCA</span></h1>
+          <p class="iu-tag">{site.hashtagInteruca}</p>
+          <p class="iu-lead">Cada edición, cada disciplina, cada podio: el registro de la participación de Derecho en los juegos interfacultades de la UCA.</p>
+        </div>
+        <dl class="medals" data-reveal style="--reveal-i:2" aria-label="Resumen de resultados">
+          <div class="medal medal--gold"><dt>Campeonatos</dt><dd data-count-res="campeon">{resumen.campeonatos}</dd></div>
+          <div class="medal medal--silver"><dt>Subcampeonatos</dt><dd data-count-res="subcampeon">{resumen.subcampeonatos}</dd></div>
+          <div class="medal medal--bronze"><dt>Terceros puestos</dt><dd data-count-res="tercero">{resumen.terceros}</dd></div>
+          <div class="medal"><dt>Ediciones</dt><dd>{resumen.ediciones}</dd></div>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  {
+    participaciones.length === 0 ? (
+      <section class="section">
+        <div class="container">
+          <EmptyState icon="trophy" title="El historial todavía no tiene resultados" text="Pronto vamos a cargar las ediciones, los resultados y las fotos de cada campeonato." />
+        </div>
+      </section>
+    ) : (
+      <>
+        {destacados.length > 0 && (
+          <section class="section section--tight champs" aria-labelledby="champs-title">
+            <div class="container">
+              <p class="eyebrow">Vitrina</p>
+              <h2 class="h2" id="champs-title" style="margin:0.75rem 0 2rem">Campeonatos y logros destacados</h2>
+              <ul role="list" class="champs__grid" data-reveal-stagger>
+                {destacados.map((p) => (
+                  <li class:list={['champ', `champ--${p.resultado}`]}>
+                    <Placeholder src={p.fotos[0]?.archivo} alt="" ratio="4 / 3" tone="red" icon="trophy" />
+                    <span class="champ__ribbon">{RESULTADO_LABEL[p.resultado]} {p.anio}</span>
+                    <div class="champ__body">
+                      <h3 class="champ__disc">{p.disciplina}{p.rama && <span> · {p.rama}</span>}</h3>
+                      {p.resultadoDetalle && <p class="champ__detail">{p.resultadoDetalle}</p>}
+                      {p.equipo && <p class="champ__team">{p.equipo}</p>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
+
+        <section class="iu-body" id="historial" data-filter-root data-filter-manual aria-labelledby="hist-title">
+          <h2 class="visually-hidden" id="hist-title">Historial por año</h2>
+          <div class="iu-filters">
+            <div class="container iu-filters__inner">
+              {anios.length > 1 && (
+                <div class="iu-filters__group">
+                  <span class="iu-filters__label" id="lbl-anio">Año</span>
+                  <div class="chips" role="group" aria-labelledby="lbl-anio" data-filter-chips data-filter-key="anio">
+                    <button type="button" class="chip" data-value="" aria-pressed="true">Todos</button>
+                    {anios.map((a) => <button type="button" class="chip" data-value={String(a)} aria-pressed="false">{a}</button>)}
+                  </div>
+                </div>
+              )}
+              {disciplinas.length > 1 && (
+                <div class="iu-filters__group">
+                  <label class="iu-filters__label" for="iu-disc">Disciplina</label>
+                  <select id="iu-disc" class="select" data-filter-key="disciplina">
+                    <option value="">Todas las disciplinas</option>
+                    {disciplinas.map((d) => <option value={d}>{d}</option>)}
+                  </select>
+                </div>
+              )}
+              <p class="iu-filters__count">
+                <span data-filter-count data-one="resultado" data-many="resultados" aria-live="polite"></span>
+                <button type="button" class="reset" data-filter-reset>Limpiar</button>
+              </p>
+            </div>
+          </div>
+
+          <div class="container iu-timeline">
+            {anios.map((anio) => (
+              <article class="edition" data-filter-group aria-labelledby={`ed-${anio}`}>
+                <h3 class="edition__year" id={`ed-${anio}`} data-reveal>{anio}</h3>
+                <ul role="list" class="results">
+                  {participaciones
+                    .filter((p) => p.anio === anio)
+                    .map((p) => (
+                      <li class:list={['result', `result--${p.resultado}`]} data-filter-item data-f-anio={String(anio)} data-f-disciplina={p.disciplina} data-res={p.resultado} data-reveal>
+                        <div class="result__top">
+                          <span class="result__medal" aria-hidden="true">
+                            <Icon name={p.resultado === 'participacion' ? 'ball' : 'medal'} size={26} />
+                          </span>
+                          <div>
+                            <p class="result__pos">{RESULTADO_LABEL[p.resultado]}{p.resultadoDetalle && ` · ${p.resultadoDetalle}`}</p>
+                            <h4 class="result__disc">{p.disciplina} {p.rama && <span>{p.rama}</span>}</h4>
+                          </div>
+                        </div>
+                        {p.equipo && <p class="result__team"><Icon name="users" size={15} /> {p.equipo}</p>}
+                        {p.descripcion && <div class="result__desc">{parrafos(p.descripcion).map((t) => <p>{t}</p>)}</div>}
+                        {p.fotos.length > 0 && (
+                          <ul role="list" class="result__photos">
+                            {p.fotos.map((f) => (
+                              <li>
+                                <a href={mediaUrl(f.archivo)} target="_blank" rel="noopener" aria-label={`Ver foto de ${p.disciplina} ${anio}`}>
+                                  <img src={mediaUrl(f.archivo)} alt="" loading="lazy" decoding="async" />
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    ))}
+                </ul>
+              </article>
+            ))}
+            <EmptyState filterEmpty icon="trophy" title="Sin resultados para esa combinación" text="Probá con otro año o disciplina." />
+          </div>
+        </section>
+      </>
+    )
+  }
+</BaseLayout>
+
+<script>
+  import { initFilters } from '@/scripts/filters';
+
+  const root = document.querySelector<HTMLElement>('#historial');
+  if (root) {
+    const counters = [...document.querySelectorAll<HTMLElement>('[data-count-res]')];
+    // Los contadores del encabezado reflejan los filtros activos.
+    initFilters(root, () => {
+      counters.forEach((c) => {
+        c.textContent = String(root.querySelectorAll(`[data-filter-item][data-res="${c.dataset.countRes}"]:not([hidden])`).length);
+      });
+    });
+  }
+</script>
+
+<style>
+  :global(body.theme-sport) { background: #f3f4f8; }
+
+  .iu-hero {
+    position: relative;
+    overflow: hidden;
+    padding-block: clamp(1.75rem, 1.25rem + 2vw, 2.75rem) clamp(3rem, 2rem + 4vw, 5rem);
+    color: var(--white);
+    background: var(--navy-700);
+  }
+  .iu-hero__bg { position: absolute; inset: 0; pointer-events: none; }
+  .iu-hero__band { position: absolute; top: 0; bottom: 0; right: -8%; width: 46%; background: var(--red-600); transform: skewX(-18deg); transform-origin: bottom; box-shadow: -18px 0 0 var(--red-800); }
+  .iu-hero__word {
+    position: absolute;
+    left: -0.04em;
+    bottom: -0.2em;
+    font-family: var(--font-display);
+    font-size: clamp(8rem, 26vw, 24rem);
+    line-height: 0.8;
+    white-space: nowrap;
+    color: transparent;
+    -webkit-text-stroke: 1.5px rgb(255 255 255 / 0.09);
+    user-select: none;
+  }
+  .iu-crumbs { position: relative; font-size: var(--fs-xs); font-weight: 600; color: #c8d3ee; }
+  .iu-crumbs a:hover { color: var(--white); text-decoration: underline; }
+  .iu-hero__main { position: relative; display: grid; gap: 2.5rem; margin-top: clamp(1.75rem, 1.25rem + 3vw, 3.5rem); align-items: end; }
+  @media (min-width: 960px) { .iu-hero__main { grid-template-columns: 1.3fr 1fr; } }
+  .iu-kicker { display: inline-flex; align-items: center; gap: 0.5rem; font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: #c8d3ee; }
+  .iu-title { font-family: var(--font-display); font-weight: 400; font-size: clamp(5rem, 2.5rem + 11vw, 11rem); line-height: 0.82; margin-top: 0.75rem; }
+  .iu-title span { color: var(--white); background: var(--red-600); padding: 0 0.08em; }
+  .iu-tag { margin-top: 0.6rem; font-family: var(--font-display); font-size: 1.7rem; letter-spacing: 0.04em; color: #ffd2cd; }
+  .iu-lead { max-width: 46ch; margin-top: 1rem; color: #dfe5f4; font-size: var(--fs-md); }
+
+  .medals { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: rgb(255 255 255 / 0.18); border: 1px solid rgb(255 255 255 / 0.18); border-radius: var(--radius); overflow: hidden; }
+  .medal { padding: 1.2rem 1.4rem; background: var(--navy-800); }
+  .medal dt { font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #c8d3ee; }
+  .medal dd { font-family: var(--font-display); font-size: 3.6rem; line-height: 1; margin-top: 0.25rem; }
+  .medal--gold dd { color: #f0cf7e; }
+  .medal--silver dd { color: #dde3ec; }
+  .medal--bronze dd { color: #e2a274; }
+
+  .champs { background: var(--white); }
+  .champs__grid { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr)); }
+  .champ { position: relative; display: flex; flex-direction: column; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); background: var(--white); transition: transform var(--dur) var(--ease-out), box-shadow var(--dur); }
+  .champ:hover { transform: translateY(-4px) rotate(-0.4deg); box-shadow: var(--shadow); }
+  .champ__ribbon {
+    position: absolute;
+    left: 0;
+    top: 1rem;
+    padding: 0.35rem 0.9rem 0.3rem 1rem;
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    letter-spacing: 0.04em;
+    color: var(--navy-800);
+    background: #f0cf7e;
+  }
+  .champ--subcampeon .champ__ribbon { background: #dde3ec; }
+  .champ--tercero .champ__ribbon { background: #e2a274; }
+  .champ--participacion .champ__ribbon { background: var(--white); }
+  .champ__body { padding: 1.1rem 1.25rem 1.3rem; border-top: 4px solid var(--navy-700); }
+  .champ__disc { font-family: var(--font-display); font-size: 2rem; font-weight: 400; line-height: 0.95; letter-spacing: 0.02em; text-transform: uppercase; }
+  .champ__disc span { font-family: var(--font-sans); font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.08em; color: var(--ink-faint); }
+  .champ__detail { font-size: var(--fs-sm); font-weight: 700; color: var(--red-600); margin-top: 0.25rem; }
+  .champ__team { font-size: var(--fs-sm); color: var(--ink-soft); margin-top: 0.35rem; }
+
+  .iu-body { padding-bottom: var(--space-section); }
+  .iu-filters {
+    position: sticky;
+    top: calc(var(--header-h) + 4px);
+    z-index: 10;
+    background: rgb(31 47 85 / 0.96);
+    backdrop-filter: blur(10px);
+    color: var(--white);
+  }
+  .iu-filters__inner { display: flex; flex-wrap: wrap; align-items: center; gap: 0.9rem 2rem; padding-block: 0.9rem; }
+  .iu-filters__group { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+  .iu-filters__label { font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #c8d3ee; }
+  .iu-filters .chip { background: transparent; color: var(--white); border-color: rgb(255 255 255 / 0.3); font-family: var(--font-display); font-size: 1.2rem; letter-spacing: 0.04em; padding: 0.25rem 0.95rem; }
+  .iu-filters .chip:hover { border-color: var(--white); color: var(--white); }
+  .iu-filters .chip[aria-pressed='true'] { background: var(--red-600); border-color: var(--red-600); }
+  .iu-filters .select { min-height: 40px; min-width: 220px; background-color: transparent; color: var(--white); border-color: rgb(255 255 255 / 0.3); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%23ffffff' stroke-width='1.6'/%3E%3C/svg%3E"); }
+  .iu-filters .select option { color: var(--ink); }
+  .iu-filters__count { margin-left: auto; display: flex; gap: 1rem; align-items: center; font-size: var(--fs-sm); font-weight: 600; color: #dfe5f4; }
+  .iu-filters .reset { color: #ffd2cd; }
+  @media (max-width: 700px) { .iu-filters { position: static; } .iu-filters__count { margin-left: 0; } }
+
+  .iu-timeline { padding-top: 2.5rem; }
+  .edition { position: relative; padding: 2rem 0 2rem clamp(1.25rem, 1rem + 2vw, 2.5rem); border-left: 3px solid var(--navy-700); }
+  .edition::before { content: ''; position: absolute; left: -9px; top: 2.8rem; width: 15px; height: 15px; background: var(--red-600); transform: rotate(45deg); }
+  .edition__year { font-family: var(--font-display); font-weight: 400; font-size: clamp(3.6rem, 2.8rem + 3vw, 5.5rem); line-height: 0.85; color: var(--navy-700); margin-bottom: 1.25rem; }
+
+  .results { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+  .result {
+    --medal: #8a93a6;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.25rem;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-top: 5px solid var(--medal);
+    border-radius: var(--radius);
+    transition: transform var(--dur) var(--ease-out), box-shadow var(--dur);
+  }
+  .result:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+  .result--campeon { --medal: #d6a93d; }
+  .result--subcampeon { --medal: #9aa4b4; }
+  .result--tercero { --medal: #c0804f; }
+  .result__top { display: flex; gap: 0.9rem; align-items: center; }
+  .result__medal { flex: none; display: grid; place-items: center; width: 50px; height: 50px; border-radius: 50%; color: var(--white); background: var(--medal); transition: transform 500ms var(--ease-out); }
+  .result:hover .result__medal { transform: rotate(-12deg) scale(1.06); }
+  .result__pos { font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); }
+  .result--campeon .result__pos { color: #93700f; }
+  .result__disc { font-family: var(--font-display); font-weight: 400; font-size: 2rem; line-height: 0.95; letter-spacing: 0.02em; text-transform: uppercase; }
+  .result__disc span { font-family: var(--font-sans); font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.08em; color: var(--ink-faint); }
+  .result__team { display: flex; gap: 0.45rem; align-items: flex-start; font-size: var(--fs-sm); font-weight: 600; }
+  .result__team :global(.icon) { flex: none; margin-top: 3px; color: var(--red-600); }
+  .result__desc { font-size: var(--fs-sm); color: var(--ink-soft); }
+  .result__desc p + p { margin-top: 0.6em; }
+  .result__photos { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .result__photos img { width: 76px; aspect-ratio: 1; object-fit: cover; border-radius: 6px; transition: transform var(--dur) var(--ease-out); }
+  .result__photos a:hover img { transform: scale(1.06); }
+</style>

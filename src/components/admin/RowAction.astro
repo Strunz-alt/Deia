@@ -1,0 +1,40 @@
+---
+/**
+ * Botón de acción en una fila del listado (envía un POST al mismo listado).
+ * Con `confirm`, pide confirmación antes de enviar.
+ */
+import Icon, { type IconName } from '../Icon.astro';
+
+interface Props {
+  action: string;
+  id: number;
+  icon: IconName;
+  label: string;
+  confirm?: string;
+  confirmTitle?: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  disabled?: boolean;
+  extra?: Record<string, string>;
+}
+
+const { action, id, icon, label, confirm, confirmTitle, confirmLabel, danger = false, disabled = false, extra = {} } = Astro.props;
+---
+
+<form method="post">
+  <input type="hidden" name="_accion" value={action} />
+  <input type="hidden" name="id" value={id} />
+  {Object.entries(extra).map(([k, v]) => <input type="hidden" name={k} value={v} />)}
+  <button
+    type="submit"
+    class:list={['icon-btn', { 'icon-btn--danger': danger }]}
+    aria-label={label}
+    title={label}
+    disabled={disabled}
+    data-confirm={confirm}
+    data-confirm-title={confirmTitle}
+    data-confirm-label={confirmLabel}
+  >
+    <Icon name={icon} size={17} />
+  </button>
+</form>

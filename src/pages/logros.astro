@@ -1,0 +1,166 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import EmptyState from '@/components/EmptyState.astro';
+import PageHero from '@/components/PageHero.astro';
+import Placeholder from '@/components/Placeholder.astro';
+import { formatFecha } from '@/lib/format';
+import { listLogros } from '@/lib/services/logros';
+import { parrafos } from '@/lib/services/noticias';
+import { mediaUrl } from '@/lib/storage';
+
+const logros = await listLogros();
+const destacados = logros.filter((l) => l.destacado);
+// Agrupados por año, del más reciente al más antiguo; dentro de cada año, el orden del panel.
+const porAnio = [...new Set(logros.map((l) => l.fecha.slice(0, 4)))]
+  .sort((a, b) => b.localeCompare(a))
+  .map((anio) => ({ anio, items: logros.filter((l) => l.fecha.startsWith(anio)) }));
+---
+
+<BaseLayout title="Logros del Centro" description="Iniciativas y resultados del Centro de Estudiantes de Derecho de la UCA, organizados por año.">
+  <PageHero
+    eyebrow="El Centro"
+    title="Logros e iniciativas"
+    lead="Lo que hicimos, año por año: iniciativas concretas, su alcance y el impacto que tuvieron en la comunidad de la Facultad."
+    crumbs={[{ label: 'El Centro' }]}
+  >
+    {
+      logros.length > 0 && (
+        <ul role="list" class="logros-stats">
+          <li><strong>{logros.length}</strong> {logros.length === 1 ? 'iniciativa' : 'iniciativas'}</li>
+          <li><strong>{porAnio.length}</strong> {porAnio.length === 1 ? 'año' : 'años'}</li>
+        </ul>
+      )
+    }
+  </PageHero>
+
+  {
+    logros.length === 0 ? (
+      <section class="section section--tight">
+        <div class="container">
+          <EmptyState icon="star" title="Todavía no hay logros publicados" text="Pronto vas a poder conocer las iniciativas y resultados del Centro." />
+        </div>
+      </section>
+    ) : (
+      <>
+        {destacados.length > 0 && (
+          <section class="section section--tight" aria-labelledby="dest-title">
+            <div class="container">
+              <p class="eyebrow">Destacados</p>
+              <h2 class="h2" id="dest-title" style="margin:0.75rem 0 2rem">Lo más importante</h2>
+              <div class="featured" data-reveal-stagger>
+                {destacados.map((l) => (
+                  <article class="featured__item">
+                    <Placeholder src={l.imagenes[0]?.archivo} alt="" ratio="16 / 10" tone="red" />
+                    <div class="featured__body">
+                      <p class="featured__meta">{formatFecha(l.fecha, { month: 'long', year: 'numeric' })}{l.area && ` · ${l.area}`}</p>
+                      <h3 class="featured__title">{l.titulo}</h3>
+                      <p class="featured__text">{parrafos(l.descripcion)[0]}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        <section class="section section--sand" aria-label="Logros por año">
+          <div class="container timeline">
+            <nav class="years" aria-label="Años">
+              <p class="years__label">Ir a</p>
+              <ul role="list">
+                {porAnio.map((g) => (
+                  <li><a href={`#anio-${g.anio}`} data-year-link>{g.anio}</a></li>
+                ))}
+              </ul>
+            </nav>
+            <div class="timeline__list">
+              {porAnio.map((g) => (
+                <section class="year" id={`anio-${g.anio}`} aria-labelledby={`t-${g.anio}`} data-year>
+                  <h2 class="year__title" id={`t-${g.anio}`} data-reveal>{g.anio}</h2>
+                  <ol role="list" class="logros">
+                    {g.items.map((l) => (
+                      <li class="logro" data-reveal>
+                        <div class="logro__head">
+                          <p class="logro__meta">
+                            {formatFecha(l.fecha, { day: 'numeric', month: 'long' })}
+                            {l.area && <span class="badge badge--soft">{l.area}</span>}
+                            {l.destacado && <span class="badge badge--red">Destacado</span>}
+                          </p>
+                          <h3 class="logro__title">{l.titulo}</h3>
+                        </div>
+                        <div class="logro__text">{parrafos(l.descripcion).map((p) => <p>{p}</p>)}</div>
+                        {l.imagenes.length > 0 && (
+                          <ul role="list" class="logro__gallery">
+                            {l.imagenes.map((img) => (
+                              <li>
+                                <a href={mediaUrl(img.archivo)} target="_blank" rel="noopener" aria-label="Ver imagen ampliada">
+                                  <img src={mediaUrl(img.archivo)} alt="" loading="lazy" decoding="async" />
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              ))}
+            </div>
+          </div>
+        </section>
+      </>
+    )
+  }
+</BaseLayout>
+
+<script>
+  const links = [...document.querySelectorAll<HTMLAnchorElement>('[data-year-link]')];
+  const io = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((e) => {
+        if (!e.isIntersecting) return;
+        links.forEach((l) => l.toggleAttribute('aria-current', l.hash === `#${e.target.id}`));
+      });
+    },
+    { rootMargin: '-40% 0px -55% 0px' },
+  );
+  document.querySelectorAll('[data-year]').forEach((s) => io.observe(s));
+</script>
+
+<style>
+  .logros-stats { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; margin-top: 1.75rem !important; font-size: var(--fs-sm); font-weight: 600; color: #fbe3e0; }
+  .logros-stats strong { font-family: var(--font-display); font-size: 2.4rem; font-weight: 400; color: var(--white); margin-right: 0.35rem; }
+
+  .featured { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); }
+  .featured__item { display: flex; flex-direction: column; background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; transition: transform var(--dur) var(--ease-out), box-shadow var(--dur); }
+  .featured__item:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+  .featured__body { display: flex; flex-direction: column; gap: 0.45rem; padding: 1.3rem; border-top: 4px solid var(--red-600); }
+  .featured__meta { font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--red-600); }
+  .featured__title { font-family: var(--font-display); font-size: 2rem; font-weight: 400; line-height: 0.95; text-transform: uppercase; }
+  .featured__text { font-size: var(--fs-sm); color: var(--ink-soft); }
+
+  .timeline { display: grid; gap: 2rem; }
+  @media (min-width: 1000px) {
+    .timeline { grid-template-columns: 150px 1fr; gap: 4rem; align-items: start; }
+    .years { position: sticky; top: calc(var(--header-h) + 2rem); }
+  }
+  .years__label { font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--red-600); margin-bottom: 0.75rem; }
+  .years ul { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  @media (min-width: 1000px) { .years ul { flex-direction: column; gap: 0.1rem; border-left: 2px solid var(--line-strong); } }
+  .years a { display: block; padding: 0.35rem 1rem; font-family: var(--font-display); font-size: 1.6rem; line-height: 1; color: var(--ink-faint); border: 1px solid var(--line-strong); border-radius: 999px; transition: color var(--dur-fast), border-color var(--dur-fast); }
+  @media (min-width: 1000px) { .years a { border: 0; border-left: 3px solid transparent; border-radius: 0; margin-left: -2px; } }
+  .years a:hover { color: var(--ink); }
+  .years a[aria-current] { color: var(--red-600); border-color: var(--red-600); }
+
+  .year + .year { margin-top: clamp(3rem, 2rem + 3vw, 5rem); }
+  .year__title { font-family: var(--font-display); font-weight: 400; font-size: clamp(4rem, 3rem + 4vw, 7rem); line-height: 0.8; color: var(--red-600); }
+  .logros { margin-top: 1.5rem; display: grid; gap: 1rem; }
+  .logro { padding: 1.5rem; background: var(--white); border: 1px solid var(--line); border-left: 4px solid var(--red-600); border-radius: var(--radius); }
+  .logro__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }
+  .logro__title { margin-top: 0.4rem; font-family: var(--font-cond); font-size: var(--fs-lg); font-weight: 600; text-transform: uppercase; line-height: 1.15; }
+  .logro__text { margin-top: 0.75rem; font-size: var(--fs-sm); color: var(--ink-soft); max-width: 72ch; }
+  .logro__text p + p { margin-top: 0.75em; }
+  .logro__gallery { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; }
+  .logro__gallery img { width: 110px; aspect-ratio: 1; object-fit: cover; border-radius: 6px; transition: transform var(--dur) var(--ease-out); }
+  .logro__gallery a:hover img { transform: scale(1.04); }
+</style>

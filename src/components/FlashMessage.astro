@@ -1,0 +1,62 @@
+---
+/** Muestra el resultado de la acción anterior (guardado, error, etc.). */
+import Icon from './Icon.astro';
+
+const flash = Astro.locals.flash;
+const icon = flash?.type === 'error' ? 'info' : flash?.type === 'success' ? 'check' : 'info';
+---
+
+{
+  flash && (
+    <div class:list={['flash', `flash--${flash.type}`]} role={flash.type === 'error' ? 'alert' : 'status'} data-flash>
+      <Icon name={icon} size={20} />
+      <p>{flash.message}</p>
+      <button type="button" class="flash__close" aria-label="Cerrar aviso" data-flash-close>
+        <Icon name="close" size={16} />
+      </button>
+    </div>
+  )
+}
+
+<style>
+  .flash {
+    position: fixed;
+    right: max(1rem, env(safe-area-inset-right));
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    z-index: 300;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    width: min(calc(100% - 2rem), 420px);
+    padding: 1rem 1rem 1rem 1.1rem;
+    border-radius: var(--radius);
+    background: var(--ink);
+    color: var(--white);
+    box-shadow: var(--shadow-lg);
+    border-left: 4px solid var(--green-700);
+    font-size: var(--fs-sm);
+    line-height: 1.45;
+    animation: flash-in 400ms var(--ease-out);
+  }
+  .flash--error { border-left-color: var(--red-500); }
+  .flash--info { border-left-color: var(--navy-600); }
+  .flash > :global(.icon) { flex: none; margin-top: 1px; color: #8fd1ad; }
+  .flash--error > :global(.icon) { color: #ff8f86; }
+  .flash p { flex: 1; }
+  .flash__close { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: #d8d6dc; }
+  .flash__close:hover { background: rgb(255 255 255 / 0.1); color: var(--white); }
+  .flash.is-leaving { animation: flash-out 300ms var(--ease-out) forwards; }
+  @keyframes flash-in { from { opacity: 0; transform: translateY(14px); } }
+  @keyframes flash-out { to { opacity: 0; transform: translateY(14px); } }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-flash]').forEach((el) => {
+    const close = () => {
+      el.classList.add('is-leaving');
+      el.addEventListener('animationend', () => el.remove(), { once: true });
+    };
+    el.querySelector('[data-flash-close]')?.addEventListener('click', close);
+    if (!el.classList.contains('flash--error')) setTimeout(close, 6000);
+  });
+</script>

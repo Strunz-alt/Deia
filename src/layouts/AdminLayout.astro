@@ -1,0 +1,149 @@
+---
+/**
+ * Layout del panel de administración. Sólo se renderiza para administradores
+ * (lo garantiza el middleware y cada página vuelve a verificarlo).
+ */
+import '@fontsource/bebas-neue/400.css';
+import '@fontsource/oswald/500.css';
+import '@fontsource/oswald/600.css';
+import '@fontsource-variable/montserrat';
+import '@/styles/global.css';
+import '@/styles/admin.css';
+
+import FlashMessage from '@/components/FlashMessage.astro';
+import Icon, { type IconName } from '@/components/Icon.astro';
+
+export type AdminSection =
+  | 'inicio'
+  | 'materias'
+  | 'materiales'
+  | 'miembros'
+  | 'logros'
+  | 'noticias'
+  | 'charlas'
+  | 'interuca'
+  | 'usuarios';
+
+interface Props {
+  title: string;
+  section: AdminSection;
+  description?: string;
+  /** Enlace para volver (p. ej. al listado). */
+  back?: { href: string; label: string };
+}
+
+const { title, section, description, back } = Astro.props;
+const user = Astro.locals.user!;
+
+const nav: { id: AdminSection; label: string; href: string; icon: IconName; group?: string }[] = [
+  { id: 'inicio', label: 'Resumen', href: '/admin', icon: 'dashboard' },
+  { id: 'materias', label: 'Materias y cátedras', href: '/admin/materias', icon: 'layers', group: 'Resúmenes' },
+  { id: 'materiales', label: 'Materiales', href: '/admin/materiales', icon: 'file', group: 'Resúmenes' },
+  { id: 'noticias', label: 'Noticias', href: '/admin/noticias', icon: 'news', group: 'Contenido' },
+  { id: 'charlas', label: 'Charlas', href: '/admin/charlas', icon: 'mic', group: 'Contenido' },
+  { id: 'logros', label: 'Logros', href: '/admin/logros', icon: 'star', group: 'Contenido' },
+  { id: 'interuca', label: 'INTERUCA', href: '/admin/interuca', icon: 'trophy', group: 'Contenido' },
+  { id: 'miembros', label: 'Miembros', href: '/admin/miembros', icon: 'users', group: 'El Centro' },
+  { id: 'usuarios', label: 'Usuarios y permisos', href: '/admin/usuarios', icon: 'shield', group: 'El Centro' },
+];
+const groups = [...new Set(nav.map((n) => n.group))];
+---
+
+<!doctype html>
+<html lang="es-AR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} · Panel CEDUCA</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" href="/favicon.png" type="image/png" />
+    <meta name="theme-color" content="#210506" />
+    <script is:inline>document.documentElement.classList.add('js');</script>
+  </head>
+  <body class="admin">
+    <a href="#admin-main" class="skip-link">Saltar al contenido</a>
+
+    <aside class="admin-side" id="admin-side" data-admin-side>
+      <a href="/admin" class="admin-side__brand">
+        <img src="/brand/logo-ced.webp" alt="" width="44" height="44" />
+        <span>
+          <strong>Panel</strong>
+          <small>Centro de Estudiantes</small>
+        </span>
+      </a>
+      <nav aria-label="Secciones del panel">
+        {
+          groups.map((g) => (
+            <div class="admin-side__group">
+              {g && <p class="admin-side__heading">{g}</p>}
+              <ul role="list">
+                {nav
+                  .filter((n) => n.group === g)
+                  .map((n) => (
+                    <li>
+                      <a href={n.href} class="admin-side__link" aria-current={n.id === section ? 'page' : undefined}>
+                        <Icon name={n.icon} size={18} />
+                        {n.label}
+                      </a>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          ))
+        }
+      </nav>
+      <div class="admin-side__foot">
+        <a href="/" class="admin-side__link" target="_blank" rel="noopener">
+          <Icon name="external" size={18} /> Ver el sitio
+        </a>
+        <div class="admin-side__user">
+          <span class="admin-side__avatar" aria-hidden="true">{user.nombre.charAt(0).toUpperCase()}</span>
+          <span class="admin-side__who">
+            <strong>{user.nombre}</strong>
+            <small>{user.email}</small>
+          </span>
+        </div>
+        <form method="post" action="/salir">
+          <button type="submit" class="admin-side__link admin-side__logout"><Icon name="logout" size={18} /> Cerrar sesión</button>
+        </form>
+      </div>
+    </aside>
+    <div class="admin-scrim" data-admin-scrim hidden></div>
+
+    <div class="admin-main">
+      <header class="admin-top">
+        <button type="button" class="admin-top__menu" aria-controls="admin-side" aria-expanded="false" data-admin-menu>
+          <Icon name="menu" size={22} /><span class="visually-hidden">Abrir menú del panel</span>
+        </button>
+        <a href="/admin" class="admin-top__brand">Panel · CEDUCA</a>
+      </header>
+
+      <main id="admin-main" tabindex="-1" class="admin-content">
+        <div class="admin-head">
+          {
+            back && (
+              <a href={back.href} class="admin-back">
+                <Icon name="arrow-left" size={16} /> {back.label}
+              </a>
+            )
+          }
+          <div class="admin-head__row">
+            <div>
+              <h1 class="admin-title">{title}</h1>
+              {description && <p class="admin-desc">{description}</p>}
+            </div>
+            <div class="admin-head__actions"><slot name="actions" /></div>
+          </div>
+        </div>
+        <slot />
+      </main>
+    </div>
+
+    <FlashMessage />
+
+    <script>
+      import '@/scripts/forms';
+      import '@/scripts/admin';
+    </script>
+  </body>
+</html>

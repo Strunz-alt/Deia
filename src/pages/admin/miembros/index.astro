@@ -1,0 +1,101 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import AdminEmpty from '@/components/admin/AdminEmpty.astro';
+import RowAction from '@/components/admin/RowAction.astro';
+import Thumb from '@/components/admin/Thumb.astro';
+import Icon from '@/components/Icon.astro';
+import { miembros as tabla } from '@/db/schema';
+import { setFlash } from '@/lib/flash';
+import { paramId } from '@/lib/forms';
+import { requireAdmin } from '@/lib/guard';
+import { moveOrden } from '@/lib/services/common';
+import { deleteMiembro, getMiembro, listMiembros } from '@/lib/services/miembros';
+
+const denied = requireAdmin(Astro);
+if (denied) return denied;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const accion = form.get('_accion');
+  const id = paramId(String(form.get('id') ?? ''));
+  if (id && (accion === 'subir' || accion === 'bajar')) {
+    await moveOrden(tabla, id, accion === 'subir' ? 'up' : 'down');
+    return Astro.redirect(`/admin/miembros#m-${id}`, 303);
+  }
+  if (id && accion === 'eliminar') {
+    const m = await getMiembro(id);
+    if (m && (await deleteMiembro(id))) setFlash(Astro.cookies, 'success', `Se quitó a ${m.nombre} de la sección Miembros.`);
+  }
+  return Astro.redirect('/admin/miembros', 303);
+}
+
+const miembros = await listMiembros();
+---
+
+<AdminLayout
+  title="Miembros del Centro"
+  section="miembros"
+  description="Integrantes que se muestran en la página pública «Quiénes somos», en el orden de esta lista."
+>
+  <a href="/admin/miembros/nuevo" class="btn btn--sm" slot="actions"><Icon name="plus" /> Agregar integrante</a>
+
+  <p class="notice notice--info" style="margin-bottom:1.25rem">
+    <Icon name="shield" size={18} />
+    <span>El cargo (presidencia, secretaría…) es sólo informativo: agregar a alguien acá <strong>no</strong> le da acceso al panel. Los permisos se gestionan en <a href="/admin/usuarios" style="text-decoration:underline">Usuarios y permisos</a>.</span>
+  </p>
+
+  {
+    miembros.length === 0 ? (
+      <AdminEmpty icon="users" title="Todavía no hay integrantes" text="Agregá a las personas que forman parte del Centro." action={{ href: '/admin/miembros/nuevo', label: 'Agregar integrante' }} />
+    ) : (
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th scope="col">Orden</th>
+              <th scope="col">Integrante</th>
+              <th scope="col">Área</th>
+              <th scope="col"><span class="visually-hidden">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {miembros.map((m, i) => (
+              <tr id={`m-${m.id}`}>
+                <td data-label="Orden">
+                  <div class="row-actions" style="justify-content:flex-start">
+                    <RowAction action="subir" id={m.id} icon="arrow-up" label={`Subir a ${m.nombre}`} disabled={i === 0} />
+                    <RowAction action="bajar" id={m.id} icon="arrow-down" label={`Bajar a ${m.nombre}`} disabled={i === miembros.length - 1} />
+                  </div>
+                </td>
+                <td>
+                  <a href={`/admin/miembros/${m.id}`} class="cell-main">
+                    <Thumb src={m.foto} icon="user" round />
+                    <span>
+                      <strong>{m.nombre}</strong>
+                      <span class="cell-sub">{m.cargo}</span>
+                    </span>
+                  </a>
+                </td>
+                <td data-label="Área">{m.area ?? '—'}</td>
+                <td>
+                  <div class="row-actions">
+                    <a href={`/admin/miembros/${m.id}`} class="icon-btn" title="Editar" aria-label={`Editar ${m.nombre}`}><Icon name="edit" size={17} /></a>
+                    <RowAction
+                      action="eliminar"
+                      id={m.id}
+                      icon="trash"
+                      danger
+                      label={`Eliminar ${m.nombre}`}
+                      confirmTitle="¿Quitar a este integrante?"
+                      confirm={`${m.nombre} dejará de aparecer en la página de Miembros y se borrará su foto.`}
+                    />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+</AdminLayout>

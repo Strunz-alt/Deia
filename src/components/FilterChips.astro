@@ -1,0 +1,23 @@
+---
+/** Grupo de chips para el motor de filtros (`src/scripts/filters.ts`). */
+interface Props {
+  /** Clave del filtro: debe coincidir con `data-f-{key}` en los ítems. */
+  filterKey: string;
+  label: string;
+  options: { value: string; label: string }[];
+  allLabel?: string;
+}
+
+const { filterKey, label, options, allLabel = 'Todas' } = Astro.props;
+---
+
+<div class="chips" role="group" aria-label={label} data-filter-chips data-filter-key={filterKey}>
+  <button type="button" class="chip" data-value="" aria-pressed="true">{allLabel}</button>
+  {
+    options.map((o) => (
+      <button type="button" class="chip" data-value={o.value} aria-pressed="false">
+        {o.label}
+      </button>
+    ))
+  }
+</div>

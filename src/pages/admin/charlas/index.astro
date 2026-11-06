@@ -1,0 +1,96 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import AdminEmpty from '@/components/admin/AdminEmpty.astro';
+import RowAction from '@/components/admin/RowAction.astro';
+import Thumb from '@/components/admin/Thumb.astro';
+import Icon from '@/components/Icon.astro';
+import { setFlash } from '@/lib/flash';
+import { formatFecha } from '@/lib/format';
+import { paramId } from '@/lib/forms';
+import { requireAdmin } from '@/lib/guard';
+import { deleteCharla, estadoCharla, getCharla, listCharlas } from '@/lib/services/charlas';
+
+const denied = requireAdmin(Astro);
+if (denied) return denied;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const id = paramId(String(form.get('id') ?? ''));
+  if (id && form.get('_accion') === 'eliminar') {
+    const c = await getCharla(id);
+    if (c && (await deleteCharla(id))) setFlash(Astro.cookies, 'success', `Se eliminó «${c.titulo}».`);
+  }
+  return Astro.redirect(`/admin/charlas${Astro.url.search}`, 303);
+}
+
+const vista = Astro.url.searchParams.get('vista') ?? '';
+const todas = await listCharlas();
+const proximas = todas.filter((c) => estadoCharla(c.fecha) === 'proxima').reverse();
+const realizadas = todas.filter((c) => estadoCharla(c.fecha) === 'realizada');
+const lista = vista === 'proximas' ? proximas : vista === 'realizadas' ? realizadas : [...proximas, ...realizadas];
+---
+
+<AdminLayout title="Charlas y jornadas" section="charlas" description="Las charlas se clasifican solas en próximas o realizadas según su fecha.">
+  <a href="/admin/charlas/nueva" class="btn btn--sm" slot="actions"><Icon name="plus" /> Nueva charla</a>
+
+  <div class="list-toolbar">
+    <nav class="pill-select" aria-label="Filtrar charlas">
+      <a href="/admin/charlas" aria-current={!vista ? 'page' : undefined}>Todas ({todas.length})</a>
+      <a href="?vista=proximas" aria-current={vista === 'proximas' ? 'page' : undefined}>Próximas ({proximas.length})</a>
+      <a href="?vista=realizadas" aria-current={vista === 'realizadas' ? 'page' : undefined}>Realizadas ({realizadas.length})</a>
+    </nav>
+  </div>
+
+  {
+    lista.length === 0 ? (
+      <AdminEmpty icon="mic" title={vista ? 'No hay charlas en esta vista' : 'Todavía no hay charlas'} action={{ href: '/admin/charlas/nueva', label: 'Crear charla' }} />
+    ) : (
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th scope="col">Charla</th>
+              <th scope="col">Fecha</th>
+              <th scope="col">Lugar</th>
+              <th scope="col">Estado</th>
+              <th scope="col"><span class="visually-hidden">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {lista.map((c) => (
+              <tr>
+                <td>
+                  <a href={`/admin/charlas/${c.id}`} class="cell-main">
+                    <Thumb src={c.imagen} icon="mic" />
+                    <span>
+                      <strong>{c.titulo}</strong>
+                      <span class="cell-sub">{c.tipo}{c.oradores.length ? ` · ${c.oradores.length} ${c.oradores.length === 1 ? 'orador' : 'oradores'}` : ''}</span>
+                    </span>
+                  </a>
+                </td>
+                <td data-label="Fecha">
+                  {formatFecha(c.fecha, { day: 'numeric', month: 'short', year: 'numeric' })}
+                  {c.hora && <span class="cell-sub">{c.hora} h</span>}
+                </td>
+                <td data-label="Lugar">
+                  {c.lugar}
+                  <span class="cell-sub">{c.modalidad}</span>
+                </td>
+                <td data-label="Estado">
+                  {estadoCharla(c.fecha) === 'proxima' ? <span class="badge badge--live">Próxima</span> : <span class="badge badge--past">Realizada</span>}
+                </td>
+                <td>
+                  <div class="row-actions">
+                    <a href={`/charlas/${c.slug}`} target="_blank" rel="noopener" class="icon-btn" title="Ver en el sitio" aria-label={`Ver ${c.titulo}`}><Icon name="eye" size={17} /></a>
+                    <a href={`/admin/charlas/${c.id}`} class="icon-btn" title="Editar" aria-label={`Editar ${c.titulo}`}><Icon name="edit" size={17} /></a>
+                    <RowAction action="eliminar" id={c.id} icon="trash" danger label={`Eliminar ${c.titulo}`} confirmTitle="¿Eliminar la charla?" confirm={`Se borrarán «${c.titulo}» y su imagen.`} />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+</AdminLayout>

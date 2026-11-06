@@ -1,0 +1,62 @@
+---
+/**
+ * Isologo del Centro. El escudo circular se muestra siempre en proporción 1:1.
+ * Archivo fuente: public/brand/logo-ced.webp (versión recortada del logo oficial).
+ */
+interface Props {
+  variant?: 'dark' | 'light';
+  size?: number;
+  showText?: boolean;
+}
+
+const { variant = 'dark', size = 48, showText = true } = Astro.props;
+---
+
+<span class:list={['logo', `logo--${variant}`]}>
+  <img
+    class="logo__mark"
+    src="/brand/logo-ced.webp"
+    width={size}
+    height={size}
+    alt={showText ? '' : 'Centro de Estudiantes de Derecho · Universidad Católica Argentina'}
+    decoding="async"
+  />
+  {
+    showText && (
+      <span class="logo__text">
+        <span class="logo__name">Centro de Estudiantes</span>
+        <span class="logo__sub">Derecho · UCA</span>
+      </span>
+    )
+  }
+</span>
+
+<style>
+  .logo { display: inline-flex; align-items: center; gap: 0.7rem; color: var(--ink); }
+  .logo--light { color: var(--white); }
+  .logo__mark {
+    flex: none;
+    aspect-ratio: 1;
+    object-fit: contain;
+    border-radius: 50%;
+    transition: transform 600ms var(--ease-out);
+  }
+  a:hover .logo__mark { transform: rotate(-8deg); }
+  .logo__text { display: flex; flex-direction: column; line-height: 1; }
+  .logo__name {
+    font-family: var(--font-cond);
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .logo__sub {
+    margin-top: 0.3rem;
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--red-600);
+  }
+  .logo--light .logo__sub { color: #f2b3ad; }
+</style>

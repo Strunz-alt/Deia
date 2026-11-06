@@ -1,0 +1,156 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import AdminEmpty from '@/components/admin/AdminEmpty.astro';
+import RowAction from '@/components/admin/RowAction.astro';
+import Icon from '@/components/Icon.astro';
+import { setFlash } from '@/lib/flash';
+import { formatFecha } from '@/lib/format';
+import { paramId } from '@/lib/forms';
+import { requireAdmin } from '@/lib/guard';
+import { deleteMaterial, getMaterial, listAllCatedras, listMateriales, listMaterias } from '@/lib/services/materias';
+import { formatBytes } from '@/lib/storage';
+
+const denied = requireAdmin(Astro);
+if (denied) return denied;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const id = paramId(String(form.get('id') ?? ''));
+  if (form.get('_accion') === 'eliminar' && id) {
+    const mat = await getMaterial(id);
+    if (mat && (await deleteMaterial(id))) setFlash(Astro.cookies, 'success', `Se eliminó «${mat.titulo}» y su archivo.`);
+    else setFlash(Astro.cookies, 'error', 'El material ya no existe.');
+  }
+  return Astro.redirect(`/admin/materiales${Astro.url.search}`, 303);
+}
+
+const sp = Astro.url.searchParams;
+const q = (sp.get('q') ?? '').trim().slice(0, 100);
+const materiaId = paramId(sp.get('materia') ?? undefined);
+const catedraParam = sp.get('catedra');
+const catedraId = catedraParam === 'general' ? -1 : paramId(catedraParam ?? undefined);
+
+const [materias, catedras, lista] = await Promise.all([
+  listMaterias(),
+  listAllCatedras(),
+  listMateriales({ q, materiaId, catedraId }),
+]);
+const catedrasFiltro = materiaId ? catedras.filter((c) => c.materiaId === materiaId) : [];
+const filtrando = Boolean(q || materiaId || catedraId);
+---
+
+<AdminLayout
+  title="Resúmenes y materiales"
+  section="materiales"
+  description="Archivos descargables de la biblioteca. Sólo los usuarios con sesión iniciada pueden verlos o descargarlos."
+>
+  {materias.length > 0 && <a href={`/admin/materiales/nuevo${materiaId ? `?materia=${materiaId}` : ''}`} class="btn btn--sm" slot="actions"><Icon name="upload" /> Subir material</a>}
+
+  {
+    materias.length === 0 ? (
+      <AdminEmpty
+        icon="layers"
+        title="Primero creá una materia"
+        text="Cada material se asocia a una materia (y opcionalmente a una cátedra)."
+        action={{ href: '/admin/materias/nueva', label: 'Crear materia' }}
+      />
+    ) : (
+      <>
+        <form method="get" class="list-toolbar" data-autosubmit role="search">
+          <div class="field field--search">
+            <label class="field__label" for="q">Buscar</label>
+            <div class="input-icon">
+              <Icon name="search" size={18} />
+              <input id="q" name="q" type="search" class="input" value={q} placeholder="Título o descripción" />
+            </div>
+          </div>
+          <div class="field">
+            <label class="field__label" for="materia">Materia</label>
+            <select id="materia" name="materia" class="select">
+              <option value="">Todas</option>
+              {materias.map((m) => <option value={m.id} selected={m.id === materiaId}>{m.nombre}</option>)}
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="catedra">Cátedra</label>
+            <select id="catedra" name="catedra" class="select" disabled={!materiaId}>
+              <option value="">{materiaId ? 'Todas' : 'Elegí una materia'}</option>
+              {materiaId && <option value="general" selected={catedraId === -1}>General (sin cátedra)</option>}
+              {catedrasFiltro.map((c) => <option value={c.id} selected={c.id === catedraId}>{c.nombre}</option>)}
+            </select>
+          </div>
+          <button type="submit" class="btn btn--sm btn--dark">Filtrar</button>
+          {filtrando && <a href="/admin/materiales" class="btn btn--sm btn--outline">Limpiar</a>}
+        </form>
+
+        <p class="results-bar__count" style="margin-bottom:0.75rem" aria-live="polite">
+          {lista.length} {lista.length === 1 ? 'material' : 'materiales'}{filtrando ? ' con esos filtros' : ''}
+        </p>
+
+        {lista.length === 0 ? (
+          <AdminEmpty
+            icon="file"
+            title={filtrando ? 'No hay materiales con esos filtros' : 'Todavía no hay materiales'}
+            text={filtrando ? 'Probá con otra búsqueda o limpiá los filtros.' : 'Subí el primer resumen o apunte de la biblioteca.'}
+            action={filtrando ? undefined : { href: '/admin/materiales/nuevo', label: 'Subir material' }}
+          />
+        ) : (
+          <div class="table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th scope="col">Material</th>
+                  <th scope="col">Materia / cátedra</th>
+                  <th scope="col">Archivo</th>
+                  <th scope="col">Fecha</th>
+                  <th scope="col"><span class="visually-hidden">Acciones</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {lista.map((m) => (
+                  <tr>
+                    <td>
+                      <a href={`/admin/materiales/${m.id}`} class="cell-main">
+                        <span>
+                          <strong>{m.titulo}</strong>
+                          <span class="cell-sub">{m.tipo}</span>
+                        </span>
+                      </a>
+                    </td>
+                    <td data-label="Materia / cátedra">
+                      {m.materia}
+                      <span class="cell-sub">{m.catedra ?? 'General (sin cátedra)'}</span>
+                    </td>
+                    <td data-label="Archivo">
+                      <span class="cell-sub">{m.archivoNombre.split('.').pop()?.toUpperCase()} · {formatBytes(m.archivoTamano)}</span>
+                    </td>
+                    <td data-label="Fecha">{formatFecha(m.fecha, { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                    <td>
+                      <div class="row-actions">
+                        <a href={`/apuntes/archivo/${m.id}`} target="_blank" rel="noopener" class="icon-btn" title="Ver archivo" aria-label={`Ver archivo de ${m.titulo}`}>
+                          <Icon name="eye" size={17} />
+                        </a>
+                        <a href={`/admin/materiales/${m.id}`} class="icon-btn" title="Editar" aria-label={`Editar ${m.titulo}`}>
+                          <Icon name="edit" size={17} />
+                        </a>
+                        <RowAction
+                          action="eliminar"
+                          id={m.id}
+                          icon="trash"
+                          label={`Eliminar ${m.titulo}`}
+                          danger
+                          confirmTitle="¿Eliminar este material?"
+                          confirm={`Se borrarán «${m.titulo}» y su archivo. Esta acción no se puede deshacer.`}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </>
+    )
+  }
+</AdminLayout>

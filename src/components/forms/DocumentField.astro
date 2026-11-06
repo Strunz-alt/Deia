@@ -1,0 +1,68 @@
+---
+/** Archivo descargable de un material de estudio. */
+import Icon from '../Icon.astro';
+import { DOCUMENT_RULES, formatBytes } from '@/lib/storage';
+
+interface Props {
+  name: string;
+  label: string;
+  current?: { nombre: string; tamano: number; href: string } | null;
+  error?: string;
+  required?: boolean;
+}
+
+const { name, label, current, error, required = false } = Astro.props;
+const id = `f-${name}`;
+---
+
+<div class:list={['field', { 'field--invalid': error }]}>
+  <span class="field__label" id={`${id}-label`}>
+    {label}{required && <span class="req" aria-hidden="true">*</span>}
+  </span>
+  {
+    current && (
+      <p class="doc-current">
+        <Icon name="file" size={20} />
+        <span>
+          <strong>{current.nombre}</strong> · {formatBytes(current.tamano)}
+        </span>
+        <a href={current.href} target="_blank" rel="noopener">Ver archivo actual</a>
+      </p>
+    )
+  }
+  <label class="file-drop">
+    <Icon name="upload" size={22} />
+    <span class="file-drop__text">
+      <strong>{current ? 'Reemplazar archivo' : 'Elegir archivo'}</strong>
+      <span class="field__hint">{DOCUMENT_RULES.label}</span>
+      <span data-file-name></span>
+    </span>
+    <input
+      type="file"
+      id={id}
+      name={name}
+      accept={DOCUMENT_RULES.accept}
+      required={required}
+      data-max-bytes={DOCUMENT_RULES.maxBytes}
+      data-extensions="pdf,docx,pptx"
+      aria-labelledby={`${id}-label`}
+      aria-describedby={error ? `${id}-error` : undefined}
+    />
+  </label>
+  {error && <p class="field__error" id={`${id}-error`}>{error}</p>}
+</div>
+
+<style>
+  .doc-current {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    padding: 0.75rem 1rem;
+    font-size: var(--fs-sm);
+    border-radius: var(--radius);
+    background: var(--sand);
+  }
+  .doc-current :global(.icon) { color: var(--red-600); }
+  .doc-current a { margin-left: auto; font-weight: 700; color: var(--red-600); text-decoration: underline; text-underline-offset: 3px; }
+</style>

@@ -1,0 +1,44 @@
+---
+/**
+ * Aviso de contenido provisional. Se ubica al inicio de las secciones que
+ * muestran datos de ejemplo e indica dónde se reemplazan.
+ */
+import Icon from './Icon.astro';
+
+interface Props {
+  /** Archivo de datos que alimenta la sección, p. ej. "src/data/charlas.ts". */
+  source?: string;
+  text?: string;
+}
+
+const { source, text = 'Los datos de esta sección son de ejemplo y se reemplazarán por información oficial del Centro.' } =
+  Astro.props;
+---
+
+<aside class="sample-notice" aria-label="Aviso de contenido de ejemplo">
+  <span class="badge badge--sample">Ejemplo</span>
+  <p>
+    <Icon name="info" size={16} />
+    <span>{text}{source && <> <span class="sample-notice__src">Fuente: <code>{source}</code></span></>}</span>
+  </p>
+</aside>
+
+<style>
+  .sample-notice {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem 1rem;
+    padding: 0.8rem 1rem;
+    margin-bottom: 2rem;
+    font-size: var(--fs-sm);
+    color: #5d4520;
+    background: #fdf7e8;
+    border: 1px solid #f0e0b8;
+    border-radius: var(--radius);
+  }
+  .sample-notice p { display: flex; gap: 0.5rem; align-items: flex-start; flex: 1 1 280px; }
+  .sample-notice :global(.icon) { flex: none; margin-top: 3px; }
+  .sample-notice__src { opacity: 0.8; }
+  code { font-size: 0.85em; background: rgb(0 0 0 / 0.05); padding: 0.05rem 0.35rem; border-radius: 4px; }
+</style>

@@ -1,0 +1,23 @@
+---
+import Icon, { type IconName } from '../Icon.astro';
+import { mediaUrl } from '@/lib/storage';
+
+interface Props {
+  src?: string | null;
+  icon?: IconName;
+  round?: boolean;
+}
+
+const { src, icon = 'image', round = false } = Astro.props;
+const url = mediaUrl(src);
+---
+
+{
+  url ? (
+    <img src={url} alt="" class:list={['thumb', { 'thumb--round': round }]} loading="lazy" width="46" height="46" />
+  ) : (
+    <span class:list={['thumb', 'thumb--ph', { 'thumb--round': round }]} aria-hidden="true">
+      <Icon name={icon} size={18} />
+    </span>
+  )
+}

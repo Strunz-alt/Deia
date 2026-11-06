@@ -1,0 +1,55 @@
+---
+export interface Option {
+  value: string | number;
+  label: string;
+  /** Atributos data-* adicionales (p. ej. para filtrar cátedras por materia). */
+  data?: Record<string, string | number>;
+}
+
+interface Props {
+  name: string;
+  label: string;
+  options: Option[];
+  value?: string | number | null;
+  error?: string;
+  hint?: string;
+  required?: boolean;
+  /** Texto de la opción vacía; si se omite, no se muestra. */
+  placeholder?: string;
+  class?: string;
+}
+
+const { name, label, options, value, error, hint, required = false, placeholder, class: className } = Astro.props;
+const id = `f-${name}`;
+const current = value == null ? '' : String(value);
+const describedBy = [error && `${id}-error`, hint && `${id}-hint`].filter(Boolean).join(' ') || undefined;
+---
+
+<div class:list={['field', { 'field--invalid': error }, className]}>
+  <label class="field__label" for={id}>
+    {label}{required && <span class="req" aria-hidden="true">*</span>}
+  </label>
+  <select
+    id={id}
+    name={name}
+    class="select"
+    required={required}
+    aria-invalid={error ? 'true' : undefined}
+    aria-describedby={describedBy}
+  >
+    {placeholder !== undefined && <option value="">{placeholder}</option>}
+    {
+      options.map((o) => (
+        <option
+          value={String(o.value)}
+          selected={String(o.value) === current}
+          {...Object.fromEntries(Object.entries(o.data ?? {}).map(([k, v]) => [`data-${k}`, String(v)]))}
+        >
+          {o.label}
+        </option>
+      ))
+    }
+  </select>
+  {hint && <p class="field__hint" id={`${id}-hint`}>{hint}</p>}
+  {error && <p class="field__error" id={`${id}-error`}>{error}</p>}
+</div>

@@ -1,0 +1,107 @@
+---
+import { eq } from 'drizzle-orm';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import AuthShell from '@/components/AuthShell.astro';
+import Icon from '@/components/Icon.astro';
+import PasswordField from '@/components/forms/PasswordField.astro';
+import { db } from '@/db/client';
+import { usuarios } from '@/db/schema';
+import { createSession, isSecureRequest, safeNext, setSessionCookie } from '@/lib/auth';
+import { setFlash } from '@/lib/flash';
+import { getDummyHash, verifyPassword } from '@/lib/password';
+import { rateLimit, resetRateLimit } from '@/lib/rate-limit';
+
+const nextParam = Astro.url.searchParams.get('next');
+const user = Astro.locals.user;
+if (user) return Astro.redirect(safeNext(nextParam, user.rol === 'admin' ? '/admin' : '/'));
+
+let error = '';
+let email = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  email = String(form.get('email') ?? '').trim().toLowerCase().slice(0, 160);
+  const password = String(form.get('password') ?? '').slice(0, 128);
+  const next = String(form.get('next') ?? '');
+
+  let ip = 'desconocida';
+  try {
+    ip = Astro.clientAddress;
+  } catch {
+    /* sin dirección disponible */
+  }
+  const byIp = rateLimit(`login-ip:${ip}`, 30, 15 * 60 * 1000);
+  const byEmail = rateLimit(`login-email:${email}`, 8, 15 * 60 * 1000);
+
+  if (!byIp.allowed || !byEmail.allowed) {
+    const minutos = Math.ceil(Math.max(byIp.retryAfterSec, byEmail.retryAfterSec) / 60);
+    error = `Demasiados intentos. Esperá ${minutos} ${minutos === 1 ? 'minuto' : 'minutos'} y volvé a probar.`;
+    Astro.response.status = 429;
+  } else if (!email || !password) {
+    error = 'Ingresá tu correo y tu contraseña.';
+    Astro.response.status = 400;
+  } else {
+    const [found] = await db.select().from(usuarios).where(eq(usuarios.email, email)).limit(1);
+    // Se verifica igual un hash ficticio para no revelar si el correo existe.
+    const ok = found ? await verifyPassword(password, found.passwordHash) : (await verifyPassword(password, await getDummyHash()), false);
+    if (!found || !ok) {
+      error = 'El correo o la contraseña no son correctos.';
+      Astro.response.status = 400;
+    } else {
+      resetRateLimit(`login-email:${email}`);
+      const session = await createSession(found.id);
+      setSessionCookie(Astro.cookies, session.token, session.expiraEn, isSecureRequest(Astro.url, Astro.request.headers));
+      setFlash(Astro.cookies, 'success', `¡Hola, ${found.nombre.split(' ')[0]}! Iniciaste sesión.`);
+      return Astro.redirect(safeNext(next, found.rol === 'admin' ? '/admin' : '/'), 303);
+    }
+  }
+}
+
+const next = safeNext(nextParam, '');
+const needsLogin = next.startsWith('/apuntes');
+---
+
+<BaseLayout title="Ingresar" description="Ingresá a tu cuenta del Centro de Estudiantes de Derecho.">
+  <AuthShell
+    eyebrow="Tu cuenta"
+    title="Ingresá al <span>Centro</span>"
+    lead="Con tu cuenta accedés a los resúmenes, apuntes y materiales de estudio de la biblioteca del Centro."
+  >
+    <form method="post" class="auth-form" novalidate>
+      <h2 class="auth-form__title">Iniciar sesión</h2>
+      {
+        needsLogin && !error && (
+          <p class="notice notice--info">
+            <Icon name="lock" size={18} /> Para ver y descargar los materiales de estudio tenés que iniciar sesión.
+          </p>
+        )
+      }
+      {
+        error && (
+          <p class="notice notice--error" role="alert">
+            <Icon name="alert" size={18} /> {error}
+          </p>
+        )
+      }
+      <input type="hidden" name="next" value={next} />
+      <div class="field">
+        <label class="field__label" for="f-email">Correo electrónico<span class="req" aria-hidden="true">*</span></label>
+        <input id="f-email" name="email" type="email" class="input" required autocomplete="email" maxlength="160" value={email} autofocus={!email} />
+      </div>
+      <PasswordField name="password" label="Contraseña" autocomplete="current-password" />
+      <button type="submit" class="btn btn--block" data-loading-text="Ingresando…">Ingresar</button>
+      <p class="auth-form__alt">
+        ¿Todavía no tenés cuenta? <a href={`/registro${next ? `?next=${encodeURIComponent(next)}` : ''}`}>Registrate</a>
+      </p>
+      <p class="auth-form__note">¿Olvidaste tu contraseña? Pedile a un administrador del Centro que la restablezca.</p>
+    </form>
+  </AuthShell>
+</BaseLayout>
+
+<style is:global>
+  .auth-form { display: grid; gap: 1.1rem; }
+  .auth-form__title { font-family: var(--font-display); font-size: 2.2rem; line-height: 1; letter-spacing: 0.02em; text-transform: uppercase; }
+  .auth-form__alt { font-size: var(--fs-sm); text-align: center; }
+  .auth-form__alt a { color: var(--red-600); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+  .auth-form__note { font-size: var(--fs-xs); color: var(--ink-faint); text-align: center; }
+</style>

@@ -1,0 +1,145 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Icon from '@/components/Icon.astro';
+import NoticiaCard from '@/components/NoticiaCard.astro';
+import Placeholder from '@/components/Placeholder.astro';
+import { formatFecha } from '@/lib/format';
+import { getNoticiaBySlug, listNoticiasPublicadas, parrafos } from '@/lib/services/noticias';
+
+const noticia = await getNoticiaBySlug(Astro.params.slug ?? '');
+const isAdmin = Astro.locals.user?.rol === 'admin';
+// Los borradores sólo los ve un administrador (vista previa).
+if (!noticia || (noticia.estado !== 'publicada' && !isAdmin)) return Astro.rewrite('/404');
+
+const cuerpo = parrafos(noticia.contenido);
+const relacionadas = (await listNoticiasPublicadas(12))
+  .filter((n) => n.id !== noticia.id)
+  .sort((a, b) => Number(b.categoria === noticia.categoria) - Number(a.categoria === noticia.categoria))
+  .slice(0, 3);
+const minutos = Math.max(1, Math.round(noticia.contenido.split(/\s+/).length / 200));
+---
+
+<BaseLayout title={noticia.titulo} description={noticia.resumen}>
+  {
+    noticia.estado !== 'publicada' && (
+      <div class="draft-bar" role="status">
+        <div class="container">
+          <Icon name="eye-off" size={18} /> Vista previa de un <strong>borrador</strong>: esta noticia no es visible para el público.
+          <a href={`/admin/noticias/${noticia.id}`}>Editar</a>
+        </div>
+      </div>
+    )
+  }
+  <article>
+    <header class="article-head">
+      <div class="article-head__band" aria-hidden="true"></div>
+      <div class="container container--narrow article-head__inner">
+        <nav aria-label="Migas de pan" class="crumbs">
+          <a href="/">Inicio</a> / <a href="/noticias">Noticias</a> / <span aria-current="page">{noticia.categoria}</span>
+        </nav>
+        <div class="article-head__meta" data-reveal>
+          <a href={`/noticias?categoria=${encodeURIComponent(noticia.categoria)}`} class="badge badge--red">{noticia.categoria}</a>
+          {isAdmin && <a href={`/admin/noticias/${noticia.id}`} class="badge badge--soft"><Icon name="edit" size={12} /> Editar</a>}
+        </div>
+        <h1 class="h1 article-head__title" data-reveal>{noticia.titulo}</h1>
+        <p class="article-head__lead" data-reveal>{noticia.resumen}</p>
+        <div class="article-head__byline" data-reveal>
+          <span><Icon name="calendar" size={16} /><time datetime={noticia.fecha}>{formatFecha(noticia.fecha)}</time></span>
+          <span><Icon name="clock" size={16} />{minutos} min de lectura</span>
+          <button type="button" class="share" data-share>
+            <Icon name="link" size={16} /> <span data-share-label>Copiar enlace</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    {
+      noticia.portada && (
+        <div class="container article-media" data-reveal>
+          <Placeholder src={noticia.portada} alt="" ratio="21 / 9" eager />
+        </div>
+      )
+    }
+
+    <div class="container container--narrow article-body">
+      <div class="prose">
+        {cuerpo.map((p) => <p>{p}</p>)}
+      </div>
+      <a href="/noticias" class="link-arrow back"><Icon name="arrow-left" size={16} /> Volver a noticias</a>
+    </div>
+  </article>
+
+  {
+    relacionadas.length > 0 && (
+      <section class="section section--sand section--tight" aria-labelledby="rel-title">
+        <div class="container">
+          <h2 class="h2" id="rel-title" style="margin-bottom:2rem">Seguí leyendo</h2>
+          <div class="grid grid--3" data-reveal-stagger>
+            {relacionadas.map((n) => (
+              <NoticiaCard noticia={n} />
+            ))}
+          </div>
+        </div>
+      </section>
+    )
+  }
+</BaseLayout>
+
+<style>
+  .draft-bar { background: var(--amber-50); color: var(--amber-700); border-bottom: 1px solid #f0dfb5; font-size: var(--fs-sm); }
+  .draft-bar .container { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding-block: 0.7rem; }
+  .draft-bar a { font-weight: 700; text-decoration: underline; margin-left: auto; }
+  .article-head { position: relative; padding-block: clamp(2rem, 1.5rem + 2vw, 3rem); overflow: hidden; }
+  .article-head__band { position: absolute; left: 0; top: 0; bottom: 0; width: 10px; background: var(--red-600); }
+  .article-head__inner { position: relative; }
+  .crumbs { font-size: var(--fs-xs); font-weight: 600; color: var(--ink-soft); }
+  .crumbs a:hover { color: var(--red-600); text-decoration: underline; text-underline-offset: 3px; }
+  .article-head__meta { display: flex; gap: 0.5rem; margin-top: clamp(1.75rem, 1.25rem + 2vw, 2.75rem); }
+  .article-head__title { margin-top: 1rem; }
+  .article-head__lead { margin-top: 1.25rem; font-size: var(--fs-lg); font-weight: 500; color: var(--ink-soft); line-height: 1.45; }
+  .article-head__byline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.5rem;
+    margin-top: 2rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+    font-size: var(--fs-sm);
+    color: var(--ink-soft);
+  }
+  .article-head__byline > span { display: inline-flex; gap: 0.45rem; align-items: center; }
+  .article-head__byline :global(.icon) { color: var(--red-600); }
+  .share {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-left: auto;
+    padding: 0.4rem 0.9rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    transition: border-color var(--dur-fast), color var(--dur-fast);
+  }
+  .share:hover { border-color: var(--red-600); color: var(--red-600); }
+  .article-media :global(img) { border-radius: var(--radius-lg); }
+  .article-body { padding-block: clamp(2rem, 1.5rem + 2vw, 3rem) var(--space-section); }
+  .back { margin-top: 3rem; }
+</style>
+
+<script>
+  import { showToast } from '@/scripts/pending';
+
+  document.querySelector<HTMLButtonElement>('[data-share]')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget as HTMLButtonElement;
+    const label = btn.querySelector('[data-share-label]')!;
+    try {
+      await navigator.clipboard.writeText(location.href);
+      label.textContent = 'Enlace copiado';
+      setTimeout(() => (label.textContent = 'Copiar enlace'), 2500);
+    } catch {
+      showToast('No se pudo copiar automáticamente. Copiá la dirección desde la barra del navegador.', 'No se pudo copiar');
+    }
+  });
+</script>
